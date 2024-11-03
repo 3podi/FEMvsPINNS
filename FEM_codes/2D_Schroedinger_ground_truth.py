@@ -62,9 +62,9 @@ for num in nums:
   print('Timesteps saved for GT: ', indices)
   saved_times = np.array(all_times)[indices-1]
   eval_coordinates['dt_coord']['0'] = list(saved_times)
-  true_u = np.zeros((dt_coords_size,nums[0]))
-  true_v = np.zeros((dt_coords_size,nums[0]))
-  true_h = np.zeros((dt_coords_size,nums[0]))
+  true_u = np.zeros((dt_coords_size,nums[0][0]*nums[0][1]))
+  true_v = np.zeros((dt_coords_size,nums[0]*nums[0][1]))
+  true_h = np.zeros((dt_coords_size,nums[0]*nums[0][1]))
   
   for i in range(av_iter_sol):
     t=0
@@ -85,7 +85,7 @@ for num in nums:
 
     save_dir = os.path.join('./2D-Schroedinger-FEM/Approx-Solution-semiimplicit/','Mesh_%03d' %numx)
     if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
+        os.mkdirs(save_dir)
 
     t0 = time.time()
     for n in range(int(num_steps)):
