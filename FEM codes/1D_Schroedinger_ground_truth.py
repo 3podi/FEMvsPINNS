@@ -31,6 +31,7 @@ all_times = [dt*(n+1) for n in range(int(num_steps))] # List of all times for wh
 dt_coords_size = 100
 indices = np.random.choice(range(len(all_times)), size=dt_coords_size, replace=False)
 indices = np.sort(indices) + 1
+print('Timesteps saved for GT: ', indices)
 saved_times = np.array(all_times)[indices-1]
 true_u = np.zeros((dt_coords_size,nums[0]))
 true_v = np.zeros((dt_coords_size,nums[0]))
