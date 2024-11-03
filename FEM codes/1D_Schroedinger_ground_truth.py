@@ -21,7 +21,7 @@ class PeriodicBoundary(SubDomain):
 # Create periodic boundary condition
 pbc = PeriodicBoundary()
 
-dt = 5e-4 # Size of the time step
+dt = 1e-4 # Size of the time step
 T = np.pi / 2
 num_steps = int(T/dt)
 nums = [7993] # Mesh spacings that will be investigated, power of 2 here, maybe 2048
