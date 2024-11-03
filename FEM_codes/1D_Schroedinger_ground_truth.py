@@ -82,7 +82,7 @@ for num in nums:
     for n in range(1,int(num_steps)+1):
         print('Time step: ', n)
         # Update current time
-        t += dt
+        t = dt * n
         # Compute solution        
         solve(a == L, u, bcs = None, solver_parameters={'linear_solver':'gmres'})
         # Update previous solution
