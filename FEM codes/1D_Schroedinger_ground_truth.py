@@ -32,9 +32,9 @@ dt_coords_size = 100
 indices = np.random.choice(range(len(all_times)), size=dt_coords_size, replace=False)
 indices = np.sort(indices) + 1
 saved_times = np.array(all_times)[indices-1]
-true_u = np.zeros((dt_coords_size,nums[0]+1))
-true_v = np.zeros((dt_coords_size,nums[0]+1))
-true_h = np.zeros((dt_coords_size,nums[0]+1))
+true_u = np.zeros((dt_coords_size,nums[0]))
+true_v = np.zeros((dt_coords_size,nums[0]))
+true_h = np.zeros((dt_coords_size,nums[0]))
 sol_matrix = []
 n_sol=0
 eval_coordinates = {}
