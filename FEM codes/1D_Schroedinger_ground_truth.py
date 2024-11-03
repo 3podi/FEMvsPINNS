@@ -111,7 +111,7 @@ for num in nums:
   save_dir = './Eval_Points/'
   save_path = os.path.join(save_dir,'1D_Schroedinger')
   if not os.path.exists(save_path):
-    os.makedirs(folder_path)
+    os.makedirs(save_path)
 
   with open(os.path.join(save_path,'eval_coordinates.json'), "w") as write_file:
     json.dump(eval_coordinates, write_file)
