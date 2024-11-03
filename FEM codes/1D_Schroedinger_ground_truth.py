@@ -29,9 +29,9 @@ nums = [7993] # Mesh spacings that will be investigated, power of 2 here, maybe 
 results, solution=dict({}),dict({}) # Save amplitudes, evaluation times, solution times, errors
 all_times = [dt*(n+1) for n in range(int(num_steps))] # List of all times for which we get the solution, will be useful for evaluation
 dt_coords_size = 100
-indices = np.random.randint(len(all_times),size=dt_coords_size)
-indices = np.sort(indices)
-saved_times = np.array(all_times)[indices]
+indices = np.random.choice(range(len(all_times)), size=dt_coords_size, replace=False)
+indices = np.sort(indices) + 1
+saved_times = np.array(all_times)[indices-1]
 true_u = np.zeros((dt_coords_size,nums[0]+1))
 true_v = np.zeros((dt_coords_size,nums[0]+1))
 true_h = np.zeros((dt_coords_size,nums[0]+1))
@@ -92,7 +92,8 @@ for num in nums:
         hdf.write(u, "/f")  
         hdf.close()
         
-        if t in saved_times:
+        if n in indices:
+            print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
             solution_values = u.vector().get_local().reshape((-1, 2))
             true_u[n_sol,:] = solution_values[:,0]
             true_v[n_sol,:] = solution_values[:,1]
@@ -103,9 +104,6 @@ for num in nums:
     time_solving += t1 - t0
 
   sol_matrix = [true_u.tolist(), true_v.tolist(), true_h.tolist()]
-  #sol_matrix.append(true_u)
-  #sol_matrix.append(true_v)
-  #sol_matrix.append(true_h)
   tot_solve = (time_solving) / av_iter_sol
   results[num]['time_solve'] = tot_solve
 
