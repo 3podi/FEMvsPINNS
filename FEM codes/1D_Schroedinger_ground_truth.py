@@ -24,15 +24,29 @@ pbc = PeriodicBoundary()
 dt = 5e-4 # Size of the time step
 T = np.pi / 2
 num_steps = int(T/dt)
-nums = [32,128,512,2048] # Mesh spacings that will be investigated, power of 2 here, maybe 2048
+nums = [7993] # Mesh spacings that will be investigated, power of 2 here, maybe 2048
 
 results, solution=dict({}),dict({}) # Save amplitudes, evaluation times, solution times, errors
 all_times = [dt*(n+1) for n in range(int(num_steps))] # List of all times for which we get the solution, will be useful for evaluation
+dt_coords_size = 100
+indices = np.random.randin(high=len(all_times,size=dt_coords_size)
+indices = np.sort(indices)
+saved_times = all_times[indices]
+true_u = np.zeros((dt_coords_size,nums[0]+1))
+true_v = np.zeros((dt_coords_size,nums[0]+1))
+true_h = np.zeros((dt_coords_size,nums[0]+1))
+sol_matrix = []
+n_sol=0
+eval_coordinates = {}
+eval_coordinates['mesh_coord'] = {}
+eval_coordinates['dt_coord'] = {}                          
+eval_coordinates['dt_coord']['0'] = list(saved_times)  
 
-av_iter_sol = 10 # Over how many iterations we want to average the solution time
+av_iter_sol = 1 # Over how many iterations we want to average the solution time
 for num in nums:
   print('Start solving', num)
   mesh = IntervalMesh(num,-5.0, 5.0) # Declare mesh
+  eval_coordinates['mesh_coord']['0'] = mesh.coordinates().to_list()
   V = VectorFunctionSpace(mesh, 'CG', 1, dim = 2, constrained_domain = pbc) # Periodic BC are included in the definition of the function space
   # CG is type of the finite element, and 1 is the degree
   # Here vector space is used because we must write separate equations for real and imaginary parts of h, and h is [h_re , h_im]
@@ -40,7 +54,7 @@ for num in nums:
   results[num], solution[num] = dict({}), dict({})
   time_solving = 0
   for i in range(av_iter_sol):
-    
+    print('Average iter sol: ', i)
     t=0
     u_0 = Expression(  ( ' 2*pow(cosh(x[0]), -1)', '0'), degree = 1) # Initial value. Has the real part only
     u_n = interpolate(u_0, V) # At t=0, the solution from the last iteration is just u_0. u_0 must be made into the function in the space V.
@@ -65,6 +79,7 @@ for num in nums:
 
     t0 = time.time()
     for n in range(1,int(num_steps)+1):
+        print('Time step: ', n)
         # Update current time
         t += dt
         # Compute solution        
@@ -76,9 +91,30 @@ for num in nums:
         hdf = HDF5File(MPI.comm_world, filepath, "w")
         hdf.write(u, "/f")  
         hdf.close()
+        
+        if t in saved_times:
+            solution_values = u.vector().get_local().reshape((-1, 2))
+            true_u[n_sol,:] = solution_values[:,0]
+            true_v[n_sol,:] = solution_values[:,1]
+            true_h[n_sol,:] = np.sqrt(true_u[n_sol,:]**2 + true_v[n_sol,:]**2)
+            n_sol += 1
 
     t1 = time.time()
     time_solving += t1 - t0
-    
+  
+  sol_matrix.append(true_u)
+  sol_matrix.append(true_v)
+  sol_matrix.append(true_h)
   tot_solve = (time_solving) / av_iter_sol
-  results[num]['time_solve'] = tot_solve # Save solution time for each mesh size
+  results[num]['time_solve'] = tot_solve
+
+  save_dir = './Eval_Points/'
+  save_path = os.path.join(save_dir,'1D_Schroedinger')
+  if not os.path.exists(save_path):
+    os.makedirs(folder_path)
+
+  with open(os.path.join(save_path,'eval_coordinates.json'), "w") as write_file:
+    json.dump(eval_coordinates, write_file)
+
+  with open(os.path.join(save_path,'eval_solution_mat.json'), "w") as write_file:
+    json.dump(sol_matrix, write_file)
