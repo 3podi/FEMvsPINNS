@@ -50,7 +50,7 @@ for num in nums:
   print('Start solving', numx)
   mesh = RectangleMesh(Point(-5,-5), Point(5, 5), numx, numy)
   print(np.array(mesh.coordinates()).shape)
-  print(len(mesh.coordinates().tolist())
+  print(len(mesh.coordinates().tolist()))
   eval_coordinates['mesh_coord']['0'] = mesh.coordinates().tolist()
   V = VectorFunctionSpace(mesh, 'CG', 1, dim = 2, constrained_domain = pbc) # periodic BC are included in the definition of the function space
   # Here vector space is used because we must write separate equations for real and imaginary parts of h, and h is [h_re , h_im]
