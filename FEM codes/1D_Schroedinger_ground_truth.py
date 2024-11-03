@@ -101,10 +101,11 @@ for num in nums:
 
     t1 = time.time()
     time_solving += t1 - t0
-  
-  sol_matrix.append(true_u)
-  sol_matrix.append(true_v)
-  sol_matrix.append(true_h)
+
+  sol_matrix = [true_u.tolist(), true_v.tolist(), true_h.tolist()]
+  #sol_matrix.append(true_u)
+  #sol_matrix.append(true_v)
+  #sol_matrix.append(true_h)
   tot_solve = (time_solving) / av_iter_sol
   results[num]['time_solve'] = tot_solve
 
