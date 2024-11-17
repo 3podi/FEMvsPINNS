@@ -106,8 +106,8 @@ for num in nums:
             solutions_at_eval_points.append((u_eval[0], u_eval[1]))  # (Real, Imaginary)
 
           #solution_values = u.vector().get_local().reshape((-1, 2))
-          true_u[n_sol,:] = [sol[0] for sol in enumerate(solutions_at_eval_points)]
-          true_v[n_sol,:] = [sol[1] for sol in enumerate(solutions_at_eval_points)]
+          true_u[n_sol,:] = [sol[0] for sol in solutions_at_eval_points]
+          true_v[n_sol,:] = [sol[1] for sol in solutions_at_eval_points]
           true_h[n_sol,:] = np.sqrt(true_u[n_sol,:]**2 + true_v[n_sol,:]**2)
           n_sol += 1
 
