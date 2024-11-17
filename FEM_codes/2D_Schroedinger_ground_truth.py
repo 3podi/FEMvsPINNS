@@ -29,13 +29,13 @@ class PeriodicBoundary(SubDomain):
 # Create periodic boundary condition
 pbc = PeriodicBoundary()
 
-dt = 0.5e-3
+dt = 0.5e-1
 T = np.pi/2
 num_steps = int(T/dt)
-nums = [(258,258)]
+nums = [(128,128)]
 av_iter_sol = 1 # Over how many iterations we want to average
 
-dt_coords_size = 100  
+dt_coords_size = 10  
 sol_matrix = []
 n_sol=0
 eval_coordinates = {}
@@ -49,8 +49,6 @@ for num in nums:
   numy = num[1]
   print('Start solving', numx)
   mesh = RectangleMesh(Point(-5,-5), Point(5, 5), numx, numy)
-  print(np.array(mesh.coordinates()).shape)
-  print(len(mesh.coordinates().tolist()))
   eval_coordinates['mesh_coord']['0'] = mesh.coordinates().tolist()
   V = VectorFunctionSpace(mesh, 'CG', 1, dim = 2, constrained_domain = pbc) # periodic BC are included in the definition of the function space
   # Here vector space is used because we must write separate equations for real and imaginary parts of h, and h is [h_re , h_im]
@@ -62,9 +60,9 @@ for num in nums:
   print('Timesteps saved for GT: ', indices)
   saved_times = np.array(all_times)[indices-1]
   eval_coordinates['dt_coord']['0'] = list(saved_times)
-  true_u = np.zeros((dt_coords_size,nums[0][0]*nums[0][1]))
-  true_v = np.zeros((dt_coords_size,nums[0]*nums[0][1]))
-  true_h = np.zeros((dt_coords_size,nums[0]*nums[0][1]))
+  true_u = np.zeros((dt_coords_size,len(eval_coordinates['mesh_coord']['0'])))
+  true_v = np.zeros((dt_coords_size,len(eval_coordinates['mesh_coord']['0'])))
+  true_h = np.zeros((dt_coords_size,len(eval_coordinates['mesh_coord']['0'])))
   
   for i in range(av_iter_sol):
     t=0
@@ -85,7 +83,7 @@ for num in nums:
 
     save_dir = os.path.join('./2D-Schroedinger-FEM/Approx-Solution-semiimplicit/','Mesh_%03d' %numx)
     if not os.path.exists(save_dir):
-        os.mkdirs(save_dir)
+        os.makedirs(save_dir)
 
     t0 = time.time()
     for n in range(int(num_steps)):
@@ -102,12 +100,23 @@ for num in nums:
         hdf.close()
        
         if n in indices:
-            print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
-            solution_values = u.vector().get_local().reshape((-1, 2))
-            true_u[n_sol,:] = solution_values[:,0]
-            true_v[n_sol,:] = solution_values[:,1]
-            true_h[n_sol,:] = np.sqrt(true_u[n_sol,:]**2 + true_v[n_sol,:]**2)
-            n_sol += 1
+          print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
+          solutions_at_eval_points = []
+
+          # Loop through each evaluation point
+          for point in eval_coordinates['mesh_coord']['0']:
+            x_eval, y_eval = point
+            # Interpolate the solution at the evaluation point
+            u_eval = u(x_eval, y_eval)  # Directly access the function value at (x, y)
+
+            # Store the results (real and imaginary parts)
+            solutions_at_eval_points.append((u_eval[0], u_eval[1]))  # (Real, Imaginary)
+
+          # Convert to a NumPy array for easier handling
+          true_u[n_sol, :] = [sol[0] for sol in solutions_at_eval_points]
+          true_v[n_sol, :] = [sol[1] for sol in solutions_at_eval_points]
+          true_h[n_sol, :] = np.sqrt(true_u[n_sol, :]**2 + true_v[n_sol, :]**2)
+          n_sol += 1
 
     t1 = time.time()
     time_solving += t1 - t0
@@ -123,6 +132,6 @@ for num in nums:
             
   with open(os.path.join(save_path,'eval_coordinates.json'), "w") as write_file:
     json.dump(eval_coordinates, write_file)
-    
+  
   with open(os.path.join(save_path,'eval_solution_mat.json'), "w") as write_file:
     json.dump(sol_matrix, write_file)
