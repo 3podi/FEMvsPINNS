@@ -21,10 +21,10 @@ class PeriodicBoundary(SubDomain):
 # Create periodic boundary condition
 pbc = PeriodicBoundary()
 
-dt = 1e-4 # Size of the time step
+dt = 1e-2 # Size of the time step torna a 1e-4
 T = np.pi / 2
 num_steps = int(T/dt)
-nums = [7993] # Mesh spacings that will be investigated, power of 2 here, maybe 2048
+nums = [1000] # Mesh spacings that will be investigated, power of 2 here, maybe 2048 torna a 7993
 
 results, solution=dict({}),dict({}) # Save amplitudes, evaluation times, solution times, errors
 all_times = [dt*(n+1) for n in range(int(num_steps))] # List of all times for which we get the solution, will be useful for evaluation
@@ -113,8 +113,10 @@ for num in nums:
   if not os.path.exists(save_path):
     os.makedirs(save_path)
 
+  print(len(eval_coordinates['mesh_coord']['0']))
   with open(os.path.join(save_path,'eval_coordinates.json'), "w") as write_file:
     json.dump(eval_coordinates, write_file)
 
+  print(len(sol_matrix[0]))
   with open(os.path.join(save_path,'eval_solution_mat.json'), "w") as write_file:
     json.dump(sol_matrix, write_file)
