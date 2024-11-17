@@ -94,12 +94,22 @@ for num in nums:
         hdf.close()
         
         if n in indices:
-            print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
-            solution_values = u.vector().get_local().reshape((-1, 2))
-            true_u[n_sol,:] = solution_values[:,0]
-            true_v[n_sol,:] = solution_values[:,1]
-            true_h[n_sol,:] = np.sqrt(true_u[n_sol,:]**2 + true_v[n_sol,:]**2)
-            n_sol += 1
+          print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
+
+          solutions_at_eval_points = []
+          # Loop through each evaluation point
+          for point in eval_coordinates['mesh_coord']['0']:
+            
+            # Interpolate the solution at the evaluation point
+            u_eval = u(point) 
+            # Store the results (real and imaginary parts)
+            solutions_at_eval_points.append((u_eval[0], u_eval[1]))  # (Real, Imaginary)
+
+          #solution_values = u.vector().get_local().reshape((-1, 2))
+          true_u[n_sol,:] = [sol[0] for sol in solutions_at_eval_points]
+          true_v[n_sol,:] = [sol[1] for sol in solutions_at_eval_points]
+          true_h[n_sol,:] = np.sqrt(true_u[n_sol,:]**2 + true_v[n_sol,:]**2)
+          n_sol += 1
 
     t1 = time.time()
     time_solving += t1 - t0
