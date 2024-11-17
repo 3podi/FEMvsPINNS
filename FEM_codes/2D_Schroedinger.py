@@ -84,7 +84,7 @@ for num in nums:
 
     save_dir = os.path.join('./2D-Schroedinger-FEM/Approx-Solution-semiimplicit/','Mesh_%03d' %numx)
     if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
+        os.makedirs(save_dir)
 
     t0 = time.time()
     for n in range(int(num_steps)):
