@@ -21,10 +21,10 @@ class PeriodicBoundary(SubDomain):
 # Create periodic boundary condition
 pbc = PeriodicBoundary()
 
-dt = 1e-2 # Size of the time step torna a 1e-4
+dt = 1e-4 # Size of the time step
 T = np.pi / 2
 num_steps = int(T/dt)
-nums = [1000] # Mesh spacings that will be investigated, power of 2 here, maybe 2048 torna a 7993
+nums = [7993] 
 
 results, solution=dict({}),dict({}) # Save amplitudes, evaluation times, solution times, errors
 all_times = [dt*(n+1) for n in range(int(num_steps))] # List of all times for which we get the solution, will be useful for evaluation
