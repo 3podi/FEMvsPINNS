@@ -35,7 +35,7 @@ num_steps = int(T/dt)
 nums = [(258,258)]
 av_iter_sol = 1 # Over how many iterations we want to average
 
-dt_coords_size = 10  
+dt_coords_size = 100  
 sol_matrix = []
 n_sol=0
 eval_coordinates = {}
