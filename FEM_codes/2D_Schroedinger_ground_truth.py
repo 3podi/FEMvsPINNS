@@ -34,6 +34,7 @@ T = np.pi/2
 num_steps = int(T/dt)
 nums = [(258,258)]
 av_iter_sol = 1 # Over how many iterations we want to average
+saving = False
 
 dt_coords_size = 100  
 sol_matrix = []
@@ -86,18 +87,20 @@ for num in nums:
         os.makedirs(save_dir)
 
     t0 = time.time()
-    for n in range(int(num_steps)):
+    #for n in range(int(num_steps)):
+    for n in indices:
         # Update current time
-        t = dt * n
+        t = dt * (n-1)
         # Compute solution        
         solve(a == L, u, bcs = None, solver_parameters={'linear_solver':'gmres'}) 
         # Update previous solution
         u_n.assign(u)
 
-        filepath = os.path.join(save_dir,'iter_%05d' %n)
-        hdf = HDF5File(MPI.comm_world, filepath, "w")
-        hdf.write(u, "/f")  
-        hdf.close()
+        if saving:
+          filepath = os.path.join(save_dir,'iter_%05d' %n)
+          hdf = HDF5File(MPI.comm_world, filepath, "w")
+          hdf.write(u, "/f")  
+          hdf.close()
        
         if n in indices:
           print(f'Saving timestep {n_sol+1}/{dt_coords_size}')

@@ -25,6 +25,7 @@ dt = 1e-4 # Size of the time step
 T = np.pi / 2
 num_steps = int(T/dt)
 nums = [7993] 
+saving = False
 
 results, solution=dict({}),dict({}) # Save amplitudes, evaluation times, solution times, errors
 all_times = [dt*(n+1) for n in range(int(num_steps))] # List of all times for which we get the solution, will be useful for evaluation
@@ -88,10 +89,11 @@ for num in nums:
         # Update previous solution
         u_n.assign(u)
 
-        filepath = './1D-Schroedinger-FEM/Approx-Solution-semiimplicit/' + str(num)+"iter_" + str(n) 
-        hdf = HDF5File(MPI.comm_world, filepath, "w")
-        hdf.write(u, "/f")  
-        hdf.close()
+        if saving:
+          filepath = './1D-Schroedinger-FEM/Approx-Solution-semiimplicit/' + str(num)+"iter_" + str(n) 
+          hdf = HDF5File(MPI.comm_world, filepath, "w")
+          hdf.write(u, "/f")  
+          hdf.close()
         
         if n in indices:
           print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
