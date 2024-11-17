@@ -29,10 +29,10 @@ class PeriodicBoundary(SubDomain):
 # Create periodic boundary condition
 pbc = PeriodicBoundary()
 
-dt = 0.5e-1
+dt = 1e-4
 T = np.pi/2
 num_steps = int(T/dt)
-nums = [(128,128)]
+nums = [(258,258)]
 av_iter_sol = 1 # Over how many iterations we want to average
 
 dt_coords_size = 10  
