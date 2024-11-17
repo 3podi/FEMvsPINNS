@@ -32,11 +32,11 @@ pbc = PeriodicBoundary()
 dt = 1e-4
 T = np.pi/2
 num_steps = int(T/dt)
-nums = [(258,258)]
+nums = [(256,256)]
 av_iter_sol = 1 # Over how many iterations we want to average
 saving = False
 
-dt_coords_size = 100  
+dt_coords_size = 25  
 sol_matrix = []
 n_sol=0
 eval_coordinates = {}
