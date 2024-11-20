@@ -34,9 +34,6 @@ indices = np.random.choice(range(len(all_times)), size=dt_coords_size, replace=F
 indices = np.sort(indices) + 1
 print('Timesteps saved for GT: ', indices)
 saved_times = np.array(all_times)[indices-1]
-true_u = np.zeros((dt_coords_size,nums[0]))
-true_v = np.zeros((dt_coords_size,nums[0]))
-true_h = np.zeros((dt_coords_size,nums[0]))
 sol_matrix = []
 n_sol=0
 eval_coordinates = {}
@@ -49,6 +46,9 @@ for num in nums:
   print('Start solving', num)
   mesh = IntervalMesh(num,-5.0, 5.0) # Declare mesh
   eval_coordinates['mesh_coord']['0'] = mesh.coordinates().tolist()
+  true_u = np.zeros((dt_coords_size,len(eval_coordinates['mesh_coord']['0'])))
+  true_v = np.zeros((dt_coords_size,len(eval_coordinates['mesh_coord']['0'])))
+  true_h = np.zeros((dt_coords_size,len(eval_coordinates['mesh_coord']['0'])))
   V = VectorFunctionSpace(mesh, 'CG', 1, dim = 2, constrained_domain = pbc) # Periodic BC are included in the definition of the function space
   # CG is type of the finite element, and 1 is the degree
   # Here vector space is used because we must write separate equations for real and imaginary parts of h, and h is [h_re , h_im]
@@ -97,10 +97,20 @@ for num in nums:
         
         if n in indices:
           print(f'Saving timestep {n_sol+1}/{dt_coords_size}')
-          solution_values = u.vector().get_local().reshape((-1, 2))
-          true_u[n_sol,:] = solution_values[:,0]
-          true_v[n_sol,:] = solution_values[:,1]
-          true_h[n_sol,:] = np.sqrt(true_u[n_sol,:]**2 + true_v[n_sol,:]**2)
+          solutions_at_eval_points = []
+
+          # Loop through each evaluation point
+          for point in eval_coordinates['mesh_coord']['0']:
+            # Interpolate the solution at the evaluation point
+            u_eval = u(point)  # Directly access the function value at (x, y)
+
+            # Store the results (real and imaginary parts)
+            solutions_at_eval_points.append((u_eval[0], u_eval[1]))  # (Real, Imaginary)
+
+          # Convert to a NumPy array for easier handling
+          true_u[n_sol, :] = [sol[0] for sol in solutions_at_eval_points]
+          true_v[n_sol, :] = [sol[1] for sol in solutions_at_eval_points]
+          true_h[n_sol, :] = np.sqrt(true_u[n_sol, :]**2 + true_v[n_sol, :]**2)
           n_sol += 1
 
     t1 = time.time()
