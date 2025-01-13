@@ -24,7 +24,7 @@ from dataset.util_Allen_1D import sample_points
 # PDE residual for 1D Allen-Cahn
 @partial(jax.vmap, in_axes=(None, 0, 0, None), out_axes=0)
 @partial(jax.jit, static_argnums=(0,))
-def residual(u, t, x, eps):
+def residual(u, t, x, eps=0.01):
     u_t = jax.jvp(u, (t, x), (1., 0.))[1]
     u_xx = jax.hessian(u,argnums=1)(t,x)
     return u_t - eps*u_xx  + (1/eps)*2*u(t,x)*(1-u(t,x))*(1-2*u(t,x))
@@ -39,6 +39,7 @@ def u_init(xs):
 # Loss functionals
 @jax.jit
 def pde_residual(params, points):
+    eps = 0.01
     return jnp.mean(residual(lambda t, x: ANN(params, jnp.stack((t, x))), points[:, 0], points[:, 1],eps)**2)
 
 @partial(jax.jit, static_argnums=0)
