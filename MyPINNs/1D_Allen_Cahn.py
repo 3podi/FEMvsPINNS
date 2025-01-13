@@ -244,3 +244,7 @@ def main():
             json.dump(evaluation, write_file)
         
         print(json.dumps(evaluation, indent=4))
+
+
+if __name__ == '__main__':
+    main()
