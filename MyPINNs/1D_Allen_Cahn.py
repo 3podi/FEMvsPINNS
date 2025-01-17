@@ -33,25 +33,36 @@ def residual(u, t, x, eps=0.01):
 # Inital condition
 @partial(jax.vmap, in_axes=0)
 def u_init(xs):
-    return jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
+    #return jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
+    value = jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
+    print('Computed u_init value: ', value)
+    return value
 
 
 # Loss functionals
 @jax.jit
 def pde_residual(params, points):
     eps = 0.01
-    return jnp.mean(residual(lambda t, x: ANN(params, jnp.stack((t, x))), points[:, 0], points[:, 1],eps)**2)
+    #return jnp.mean(residual(lambda t, x: ANN(params, jnp.stack((t, x))), points[:, 0], points[:, 1],eps)**2)
+    value = jnp.mean(residual(lambda t, x: ANN(params, jnp.stack((t, x))), points[:, 0], points[:, 1],eps)**2)
+    print('Computed pde residual value: ', value)
+    return value
 
 @partial(jax.jit, static_argnums=0)
 def init_residual(u_init,params, xs):
     ini_approx = ANN(params, jnp.stack((jnp.zeros_like(xs[:,0]), xs[:,0]), axis=1))
     ini_true = u_init(xs[:,0])
-    return jnp.mean((ini_approx - ini_true)**2) 
+    #return jnp.mean((ini_approx - ini_true)**2)
+    value = jnp.mean((ini_approx - ini_true)**2)
+    print('Computed init_residual value: ', value)
+    return value
 
 @jax.jit
 def boundary_residual(params, ts): #periodic bc
-    return jnp.mean((ANN(params, jnp.stack((ts[:,0], jnp.zeros_like(ts[:,0])), axis=1)) - 
-                                  ANN(params, jnp.stack((ts[:,0], jnp.ones_like(ts[:,0])), axis=1)))**2)
+    #return jnp.mean((ANN(params, jnp.stack((ts[:,0], jnp.zeros_like(ts[:,0])), axis=1)) - ANN(params, jnp.stack((ts[:,0], jnp.ones_like(ts[:,0])), axis=1)))**2)
+    value = jnp.mean((ANN(params, jnp.stack((ts[:,0], jnp.zeros_like(ts[:,0])), axis=1)) - ANN(params, jnp.stack((ts[:,0], jnp.ones_like(ts[:,0])), axis=1)))**2)
+    print('Computed boundary residual value: ', value)
+    return value
 
 
 #----------------------------------------------------
@@ -107,8 +118,10 @@ def train_loop(params, adam, opt_state, num_epochs, validate_every=10, lr_schedu
     val_losses = []
     
     for epoch in range(num_epochs):
+        print('EPOCH: ', epoch)
         # Lr scheduler step
         lr = lr_scheduler.get_lr()
+        print('Got LR: ', lr)
         adam.learning_rate = lr
 
         # Perform a training step
@@ -150,7 +163,7 @@ def main():
     # Define architectures list
     #----------------------------------------------------
     #architecture_list = [[2,20,20,20,1],[2,100,100,100,1],[2,500,500,500,1],[2,20,20,20,20,1],[2,100,100,100,100,1],[2,500,500,500,500,1],[2,20,20,20,20,20,1],[2,100,100,100,100,100,1],[2,500,500,500,500,500,1],[2,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,1],[2,500,500,500,500,500,500,1],[2,20,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,100,1]]
-    architecture_list = [[2,100,100,100,1]]
+    architecture_list = [[2,20,20,20,1]]
     
     #----------------------------------------------------
     # Load GT solution
