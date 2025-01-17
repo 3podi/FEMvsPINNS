@@ -36,7 +36,7 @@ def residual(u, t, x, eps=0.01):
 def u_init(xs):
     #return jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
     value = jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
-    debug.print('Computed u_init {value}: ', value=value)
+    #debug.print('Computed u_init {value}: ', value=value)
     return value
 
 
@@ -52,6 +52,7 @@ def pde_residual(params, points):
 @partial(jax.jit, static_argnums=0)
 def init_residual(u_init,params, xs):
     ini_approx = ANN(params, jnp.stack((jnp.zeros_like(xs[:,0]), xs[:,0]), axis=1))
+    debug.print('ANN eval in init_residual: {value}', value=ini_approx )
     ini_true = u_init(xs[:,0])
     #return jnp.mean((ini_approx - ini_true)**2)
     value = jnp.mean((ini_approx - ini_true)**2)

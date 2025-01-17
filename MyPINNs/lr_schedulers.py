@@ -33,4 +33,5 @@ class LinearWarmupCosineDecay:
             cosine_decay = 0.5 * (1 + math.cos(math.pi * progress))  # Cosine decay factor
             lr = self.min_lr + (self.base_lr - self.min_lr) * cosine_decay
         
+        self.last_epoch += 1
         return lr
