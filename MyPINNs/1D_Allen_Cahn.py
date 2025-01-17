@@ -2,6 +2,7 @@ import os
 #import optax
 import jax, time, pickle
 import jax.numpy as jnp
+from jax import debug
 import numpy as onp
 from functools import partial
 import json
@@ -35,7 +36,7 @@ def residual(u, t, x, eps=0.01):
 def u_init(xs):
     #return jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
     value = jnp.array([0.5*(0.5*jnp.sin(xs*2*jnp.pi) + 0.5*jnp.sin(xs*16*jnp.pi)) + 0.5])
-    print('Computed u_init value: ', value)
+    debug.print('Computed u_init {value}: ', value=value)
     return value
 
 
@@ -45,7 +46,7 @@ def pde_residual(params, points):
     eps = 0.01
     #return jnp.mean(residual(lambda t, x: ANN(params, jnp.stack((t, x))), points[:, 0], points[:, 1],eps)**2)
     value = jnp.mean(residual(lambda t, x: ANN(params, jnp.stack((t, x))), points[:, 0], points[:, 1],eps)**2)
-    print('Computed pde residual value: ', value)
+    debug.print('Computed pde residual {value}: ', value=value)
     return value
 
 @partial(jax.jit, static_argnums=0)
@@ -54,14 +55,14 @@ def init_residual(u_init,params, xs):
     ini_true = u_init(xs[:,0])
     #return jnp.mean((ini_approx - ini_true)**2)
     value = jnp.mean((ini_approx - ini_true)**2)
-    print('Computed init_residual value: ', value)
+    debug.print('Computed init_residual {value}: ', value=value)
     return value
 
 @jax.jit
 def boundary_residual(params, ts): #periodic bc
     #return jnp.mean((ANN(params, jnp.stack((ts[:,0], jnp.zeros_like(ts[:,0])), axis=1)) - ANN(params, jnp.stack((ts[:,0], jnp.ones_like(ts[:,0])), axis=1)))**2)
     value = jnp.mean((ANN(params, jnp.stack((ts[:,0], jnp.zeros_like(ts[:,0])), axis=1)) - ANN(params, jnp.stack((ts[:,0], jnp.ones_like(ts[:,0])), axis=1)))**2)
-    print('Computed boundary residual value: ', value)
+    debug.print('Computed boundary residual {value}: ', value=value)
     return value
 
 
@@ -86,6 +87,7 @@ def training_step(params, opt, opt_state):#, u_init):
                                                     1000*init_residual(u_init,params, init) +
                                                     boundary_residual(params, boundary))(params)
     
+    print('Grad in training step: ', grad)
     #pde_val, ini_val, bound_val = pde_residual(params, domain_points), init_residual(u_init,params, init), boundary_residual(params, boundary)
     params, opt_state = opt.update(params, grad, opt_state)
     return params, opt_state, loss_val

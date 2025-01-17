@@ -21,9 +21,11 @@ class LinearWarmupCosineDecay:
 
     def get_lr(self):
         current_epoch = self.last_epoch + 1
+        print('Current epoch in lr scheduler: ', current_epoch)
 
         if current_epoch < self.warmup_epochs:
             # Linear warmup
+            print('Doing warm up in lr scheduler')
             lr = self.base_lr * (current_epoch / max(1, self.warmup_epochs))
         else:
             # Cosine decay
