@@ -14,7 +14,7 @@ from optimizers import Adam, AdamW
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, points_to_hashable, sample_training_points
 
-#from Allen_Cahn_1D.util_gt import ImportData, CompareGT
+from MyPINNs.Allen_Cahn_1D.util_gt import ImportData, CompareGT
 #from Allen_Cahn_1D.util import sample_points
 
 
@@ -183,9 +183,9 @@ def main():
     #----------------------------------------------------
     # Load GT solution
     #----------------------------------------------------
-    #GTloader = ImportData('./Eval_Points/1D_Allen-Cahn/')
-    #mesh_coord, dt_coord = GTloader.get_FEM_coordinates()
-    #FEM = GTloader.get_FEM_results()
+    GTloader = ImportData(name_folder='1D_Allen-Cahn')
+    mesh_coord, dt_coord = GTloader.get_FEM_coordinates()
+    FEM = GTloader.get_FEM_results()
 
     #----------------------------------------------------
     # Train PINN
