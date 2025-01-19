@@ -192,8 +192,7 @@ def main():
     #----------------------------------------------------
     # Train model 10 times and average over the times
     u_results = dict({})
-    times_adam, times_eval, l2_rel, var, arch  = dict({}), dict({}), dict({}), dict({}), dict({})
-    n=0
+    times_adam, times_eval, l2_rel, var, arch  = None, None, None, None, None #dict({}), dict({}), dict({}), dict({}), dict({})
     print('Start training')
     for feature in architecture_list:
         print('Architecture: ', feature)
@@ -220,7 +219,7 @@ def main():
             train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, init_epochs, total_epochs, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
-            print("Adam training time: ", adam_time)
+            #print("Adam training time: ", adam_time)
 
             #----------------------------------------------------
             # Start Training with L-BFGS optimiser
@@ -251,9 +250,9 @@ def main():
 
         u_gt = gt_fem.tolist()
         domain_pts = domain_pt.tolist()
-        u_results[n] = approx.tolist()
-        times_adam[n], times_eval[n], l2_rel[n], var[n], arch[n] = onp.mean(times_adam_temp), onp.mean(times_eval_temp), onp.mean(jnp.array(l2_errors)).tolist(), onp.var(jnp.array(l2_errors)).tolist(), feature
-        n+=1
+        u_results = approx.tolist()
+        times_adam, times_eval, l2_rel, var, arch = onp.mean(times_adam_temp), onp.mean(times_eval_temp), onp.mean(jnp.array(l2_errors)).tolist(), onp.var(jnp.array(l2_errors)).tolist(), feature
+
         results = dict({'domain_pts': domain_pts,
                         'u_results': u_results,
                         'u_gt': u_gt})
@@ -264,14 +263,15 @@ def main():
             'l2_rel': l2_rel,
             'var_u': var})
 
-        save_dir = './1D-Allen-Cahn-PINN'
+        save_dir = './MyPINNS_results/1D-Allen-Cahn-PINN'
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
-        with open(os.path.join(save_dir,'PINNs_results_smalleps.json'), "w") as write_file:
+        architecture_name = "_".join(map(str, feature))
+        with open(os.path.join(save_dir, f'PINNs_results_smalleps_{architecture_name}.json'), "w") as write_file:
             json.dump(results, write_file)
-
-        with open(os.path.join(save_dir,'PINNs_evaluation_smalleps.json'), "w") as write_file:
+ 
+        with open(os.path.join(save_dir, f'PINNs_evaluation_smalleps_{architecture_name}.json'), "w") as write_file:
             json.dump(evaluation, write_file)
         
         print(json.dumps(evaluation, indent=4))
