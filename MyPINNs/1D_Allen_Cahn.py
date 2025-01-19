@@ -14,7 +14,7 @@ from optimizers import Adam, AdamW
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, points_to_hashable, sample_training_points
 
-#from Allen_Cahn_1D.util_gt import ImportData, CompareGT
+from Allen_Cahn_1D.util_gt import ImportData, CompareGT
 #from Allen_Cahn_1D.util import sample_points
 
 
@@ -115,15 +115,13 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
             if (init_epoch + 1) % validate_every == 0:
                 loss_val_init = validation_step_ini(params, val_points_init=val_points[-1])  # Compute validation loss
                 #val_losses.append(loss_val.item())
-                print(f"Epoch {init_epoch + 1}/{num_epochs} - Train Loss: {loss_train_init.item():.6f}, Val Loss: {loss_val_init.item():.6f}")
+                print(f"Epoch {init_epoch + 1}/{init_epochs} - Train Loss: {loss_train_init.item():.6f}, Val Loss: {loss_val_init.item():.6f}")
             #else:
             #    print(f"Init Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}")
         
     for epoch in range(num_epochs):
-        print('EPOCH: ', epoch)
         # Lr scheduler step
         lr = lr_scheduler.get_lr()
-        print('Got LR: ', lr)
         adam.learning_rate = lr
 
         # Perform a training step
@@ -158,7 +156,7 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
 def main():
     lr = 1e-4
     init_epochs = 7000
-    total_epochs = 100000
+    total_epochs = 50000
     lr_scheduler = LinearWarmupCosineDecay(warmup_epochs=100,total_epochs=total_epochs,base_lr=lr, min_lr=lr*1e-2)
     validation_freq = 10
 
