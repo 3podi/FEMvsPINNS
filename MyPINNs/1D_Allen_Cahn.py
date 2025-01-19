@@ -12,7 +12,7 @@ import numpy.random as npr
 from nn.model import ANN, initialize_params
 from optimizers import Adam, AdamW
 from lr_schedulers import LinearWarmupCosineDecay
-from dataset.util_Allen_1D import sample_points, points_to_hashable, sample_training_points
+from dataset.util_Allen_1D import sample_points, sample_training_points, plot_losses
 
 from util_gt import ImportData, CompareGT
 #from Allen_Cahn_1D.util import sample_points
@@ -66,19 +66,26 @@ def training_step_ini(params, opt, opt_state, val_points):
 
 @partial(jax.jit, static_argnums=(1,))
 def training_step(params, opt, opt_state, val_points):#, u_init):
-    domain_points, boundary, init = sample_training_points([0.,0.],[0.05,1.],20000,250,500, val_points)
+    domain_points, boundary, init = sample_training_points([0.,0.],[0.05,1.],15000,250,500, val_points)
 
     domain_points = jax.device_put(domain_points)
     boundary = jax.device_put(boundary)
     init = jax.device_put(init)
 
-    loss_val, grad = jax.value_and_grad(lambda params: pde_residual(params, domain_points) + 
-                                                    1000*init_residual(u_init,params, init) +
-                                                    boundary_residual(params, boundary))(params)
+    #loss_val, grad = jax.value_and_grad(lambda params: pde_residual(params, domain_points) + 
+    #                                                1000*init_residual(u_init,params, init) +
+    #                                                boundary_residual(params, boundary))(params)
+    
+    pde_loss = pde_residual(params, domain_points)
+    init_loss = init_residual(u_init, params, init)
+    bound_loss = boundary_residual(params, boundary)
+    total_loss, grad = jax.value_and_grad(lambda params: pde_loss + 1000 * init_loss + bound_loss)(params)
+
+    loss_dict = {'total_loss': total_loss, 'pde_loss': pde_loss, 'init_loss': init_loss, 'bound_loss': bound_loss}
     
     #pde_val, ini_val, bound_val = pde_residual(params, domain_points), init_residual(u_init,params, init), boundary_residual(params, boundary)
     params, opt_state = opt.update(params, grad, opt_state)
-    return params, opt_state, loss_val
+    return params, opt_state, loss_dict
 
 @jax.jit
 def validation_step_ini(params, val_points_init):
@@ -97,21 +104,20 @@ def validation_step(params, val_points):
         1000 * init_residual(u_init, params, val_init) +
         boundary_residual(params, val_boundary)
     )
-    return loss_val
+    pde_loss = pde_residual(params, val_domain_points)
+    init_loss = init_residual(u_init, params, val_init)
+    bound_loss = boundary_residual(params, val_boundary)
+    total_loss = pde_loss + 1000 * init_loss + bound_loss
 
-#def train_loop(params, adam, opt_state, num_epochs):
-#    losses = []
-#    #for i in range(7000):
-#    #    params, opt_state, loss_val = training_step_ini(params, adam, opt_state)
-#    #    losses.append(loss_val.item())
-#    for _ in range(num_epochs):
-#        params, opt_state, loss_val = training_step(params, adam, opt_state)
-#        losses.append(loss_val.item())
-#    return losses, params, opt_state, key, loss_val
+    loss_dict = {'total_loss': total_loss, 'pde_loss': pde_loss, 'init_loss': init_loss, 'bound_loss': bound_loss}
+    return loss_dict
 
-def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, validate_every=10, lr_scheduler=None):
-    train_losses = []
-    val_losses = []
+
+def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, n_patience, validate_every=10, lr_scheduler=None):
+    train_losses_dict = {'total_loss': [], 'pde_loss': [], 'init_loss': [], 'bound_loss': []}
+    val_losses_dict = {'total_loss': [], 'pde_loss': [], 'init_loss': [], 'bound_loss': []}
+    best_loss = 3000
+    patience = n_patience
 
     if init_epochs is not None:
         print('First stage: ')
@@ -132,17 +138,31 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
 
         # Perform a training step
         params, opt_state, loss_train = training_step(params, adam, opt_state, val_points)
-        train_losses.append(loss_train.item())
+        
+        for k,v in loss_train:
+            train_losses_dict[k].append(v.item())
         
         # Validation step (every `validate_every` epochs)
         if (epoch + 1) % validate_every == 0:
             loss_val = validation_step(params, val_points)  # Compute validation loss
-            val_losses.append(loss_val.item())
+            for k,v in loss_val:
+                val_losses_dict[k].append(v.item())
             print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}, Val Loss: {loss_val.item():.6f}")
+            if best_loss - val_losses_dict['total_loss'][-1] > 0.01:
+                best_loss = val_losses_dict['total_loss'][-1]  # Update best loss
+                patience = n_patience  # Reset patience
+            else:
+                patience -= 1
+            
+            if patience == 0:
+                print('Early stopping the training, best val_loss: ', best_loss)
+                break
+            
+            plot_losses(train_losses_dict, val_losses_dict)
         #else:
         #    print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}")
     
-    return train_losses, val_losses, params, opt_state
+    return train_losses_dict, val_losses_dict, params, opt_state
 
 
 #----------------------------------------------------
@@ -164,7 +184,7 @@ def main():
 
     lr = 1e-3
     init_epochs = 7000
-    total_epochs = 30000
+    total_epochs = 50000
     validation_freq = 50
 
     val_domain_points, val_boundary, val_init = sample_points([0.,0.],[0.05,1.],2000,100,100)
@@ -177,7 +197,7 @@ def main():
     # Define architectures list
     #----------------------------------------------------
     #architecture_list = [[2,20,20,20,1],[2,100,100,100,1],[2,500,500,500,1],[2,20,20,20,20,1],[2,100,100,100,100,1],[2,500,500,500,500,1],[2,20,20,20,20,20,1],[2,100,100,100,100,100,1],[2,500,500,500,500,500,1],[2,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,1],[2,500,500,500,500,500,500,1],[2,20,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,100,1]]
-    architecture_list = [[2,100,100,100,100,1]]
+    architecture_list = [[2,20,20,20,1]]
     
     #----------------------------------------------------
     # Load GT solution
@@ -198,7 +218,7 @@ def main():
         times_adam_temp = []
         times_eval_temp = []
         l2_errors = []
-        for _ in range(10):
+        for _ in range(1):
             #----------------------------------------------------
             # Initialize Model
             #----------------------------------------------------
@@ -216,7 +236,7 @@ def main():
             # Start Training
             #----------------------------------------------------
             start_time = time.time() 
-            train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, init_epochs, total_epochs, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
+            train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, init_epochs, total_epochs, patience=5, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
             #print("Adam training time: ", adam_time)
