@@ -14,7 +14,7 @@ from optimizers import Adam, AdamW
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, points_to_hashable, sample_training_points
 
-from MyPINNs.Allen_Cahn_1D.util_gt import ImportData, CompareGT
+from util_gt import ImportData, CompareGT
 #from Allen_Cahn_1D.util import sample_points
 
 
