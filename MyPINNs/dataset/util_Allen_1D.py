@@ -1,5 +1,6 @@
 from pyDOE import lhs
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 
 def sample_points(low_b,up_b,num_domain,num_bound,num_ini):
     lb = jnp.array(low_b)
@@ -57,3 +58,21 @@ def sample_training_points(low_b,up_b,num_domain,num_bound,num_ini,validation_po
         init = filter_points(init, val_init)
         return domain_points, boundary, init
 
+
+def plot_losses(train_data, val_data):
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+    axes = axes.flatten() 
+
+    # Plot training and validation metrics
+    for idx, key in enumerate(train_data.keys()):
+        axes[idx].plot(train_data[key], marker='o', linestyle='-', label='Train')
+        axes[idx].plot(val_data[key], marker='s', linestyle='--', label='Validation')
+        axes[idx].set_title(key)
+        axes[idx].set_xlabel('Epochs')
+        axes[idx].set_ylabel('Value')
+        axes[idx].legend()
+        axes[idx].grid(True)
+
+    plt.tight_layout()
+    plt.show()
