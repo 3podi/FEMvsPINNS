@@ -162,11 +162,10 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
 def main():
     print('Device: ', jax.default_backend())
 
-    lr = 1e-4
+    lr = 1e-3
     init_epochs = 7000
-    total_epochs = 50000
-    lr_scheduler = LinearWarmupCosineDecay(warmup_epochs=100,total_epochs=total_epochs,base_lr=lr, min_lr=lr*1e-2)
-    validation_freq = 10
+    total_epochs = 30000
+    validation_freq = 50
 
     val_domain_points, val_boundary, val_init = sample_points([0.,0.],[0.05,1.],2000,100,100)
     
@@ -178,7 +177,7 @@ def main():
     # Define architectures list
     #----------------------------------------------------
     #architecture_list = [[2,20,20,20,1],[2,100,100,100,1],[2,500,500,500,1],[2,20,20,20,20,1],[2,100,100,100,100,1],[2,500,500,500,500,1],[2,20,20,20,20,20,1],[2,100,100,100,100,100,1],[2,500,500,500,500,500,1],[2,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,1],[2,500,500,500,500,500,500,1],[2,20,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,100,1]]
-    architecture_list = [[2,20,20,20,1]]
+    architecture_list = [[2,100,100,100,100,1]]
     
     #----------------------------------------------------
     # Load GT solution
@@ -211,6 +210,7 @@ def main():
             #----------------------------------------------------
             optimizer = Adam(lr)
             opt_state = optimizer.init(params)
+            lr_scheduler = LinearWarmupCosineDecay(warmup_epochs=100,total_epochs=total_epochs,base_lr=lr, min_lr=lr*1e-1)
 
             #----------------------------------------------------
             # Start Training
@@ -265,7 +265,7 @@ def main():
 
         save_dir = './MyPINNS_results/1D-Allen-Cahn-PINN'
         if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
+            os.makedirs(save_dir, exist_ok=True)
 
         architecture_name = "_".join(map(str, feature))
         with open(os.path.join(save_dir, f'PINNs_results_smalleps_{architecture_name}.json'), "w") as write_file:
