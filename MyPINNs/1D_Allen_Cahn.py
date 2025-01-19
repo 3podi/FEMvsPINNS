@@ -115,7 +115,7 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
             if (init_epoch + 1) % validate_every == 0:
                 loss_val = validation_step_ini(params, val_points_init=val_points[-1])  # Compute validation loss
                 #val_losses.append(loss_val.item())
-                print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}, Val Loss: {loss_val.item():.6f}")
+                print(f"Epoch {init_epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}, Val Loss: {loss_val.item():.6f}")
             #else:
             #    print(f"Init Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}")
         
