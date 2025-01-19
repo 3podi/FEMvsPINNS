@@ -33,8 +33,8 @@ class Adam:
         return {
             'momentum': momentum,
             'velocity': velocity,
-            'beta1_power': 1.0,
-            'beta2_power': 1.0,
+            'beta1_power': self.beta1,
+            'beta2_power': self.beta2,
         }
 
     def update(self, params, grads, state):
