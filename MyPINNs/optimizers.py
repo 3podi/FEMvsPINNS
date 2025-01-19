@@ -27,14 +27,12 @@ class Adam:
         Returns:
             A dictionary containing the optimizer state.
         """
-        momentum = [jnp.zeros_like(p) for p in params]
-        velocity = [jnp.zeros_like(p) for p in params]
         
         return {
-            'momentum': momentum,
-            'velocity': velocity,
-            'beta1_power': self.beta1,
-            'beta2_power': self.beta2,
+            'momentum': jax.tree_map(lambda p: jnp.zeros_like(p), params),
+            'velocity': jax.tree_map(lambda p: jnp.zeros_like(p), params),
+            'beta1_power': jnp.array(self.beta1),
+            'beta2_power': jnp.array(self.beta2),
         }
 
     def update(self, params, grads, state):
@@ -50,40 +48,34 @@ class Adam:
             updated_params: List of updated model parameters
             updated_state: Updated optimizer state
         """
-        def apply_update(m, v, g):
-            # Update biased first moment estimate.
-            m = self.beta1 * m + (1 - self.beta1) * g
-            # Update biased second raw moment estimate.
-            v = self.beta2 * v + (1 - self.beta2) * (g ** 2)
+        def apply_update(param, grad, m, v):
+            # Update biased first and second moment estimates
+            m = self.beta1 * m + (1 - self.beta1) * grad
+            v = self.beta2 * v + (1 - self.beta2) * (grad ** 2)
             
-            # Compute bias-corrected moment estimates.
+            # Bias correction
             m_hat = m / (1 - state['beta1_power'])
             v_hat = v / (1 - state['beta2_power'])
             
-            # Parameter update.
-            param_update = self.learning_rate * m_hat / (jnp.sqrt(v_hat) + self.epsilon)
-            return m, v, param_update
+            # Parameter update
+            param = param - self.learning_rate * m_hat / (jnp.sqrt(v_hat) + self.epsilon)
+            return param, m, v
 
-        updated_params = []
-        updated_momentum = []
-        updated_velocity = []
-        updated_state = state.copy()
+        updated_params, (updated_momentum, updated_velocity) = jax.tree_map(
+            lambda p, g, m, v: apply_update(p, g, m, v),
+            params, grads, state['momentum'], state['velocity']
+        )
 
-        # Apply the update to each parameter
-        for p, g, m, v in zip(params, grads, state['momentum'], state['velocity']):
-            m, v, param_update = apply_update(m, v, g)
-            updated_params.append(p - param_update)
-            updated_momentum.append(m)
-            updated_velocity.append(v)
+        # Update the optimizer state
+        updated_state = {
+            'momentum': updated_momentum,
+            'velocity': updated_velocity,
+            'beta1_power': state['beta1_power'] * self.beta1,
+            'beta2_power': state['beta2_power'] * self.beta2,
+        }
 
-        # Update state with new momentum and velocity
-        updated_state['momentum'] = updated_momentum
-        updated_state['velocity'] = updated_velocity
-        updated_state['beta1_power'] *= self.beta1
-        updated_state['beta2_power'] *= self.beta2
-        
         return updated_params, updated_state
-    
+            
 
 class AdamW:
     def __init__(self, learning_rate=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8, weight_decay=0.01):
