@@ -55,11 +55,11 @@ def boundary_residual(params, ts): #periodic bc
 # Define Training Step
 #----------------------------------------------------
 @partial(jax.jit, static_argnums=(1,))
-def training_step_ini(params, opt, opt_state, val_init):
-    init = sample_training_points([0.,0.],[0.05,1.],20000,250,500, val_init, init_only=True)
+def training_step_ini(params, opt, opt_state, val_points):
+    init = sample_training_points([0.,0.],[0.05,1.],20000,250,500, val_points, init_only=True)
 
     loss_val, grad = jax.value_and_grad(lambda params: init_residual(u_init,params, init))(params)    
-    params, opt_state = opt.update(grad, opt_state, params)
+    params, opt_state = opt.update(params, grad, opt_state)
     return params, opt_state, loss_val
 
 @partial(jax.jit, static_argnums=(1,))
@@ -110,7 +110,7 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
     if init_epochs is not None:
         print('First stage: ')
         for init_epoch in range(init_epochs):
-            params, opt_state, loss_val = training_step_ini(params, adam, opt_state, val_points[-1])
+            params, opt_state, loss_val = training_step_ini(params, adam, opt_state, val_points)
 
             if (init_epoch + 1) % validate_every == 0:
                 loss_val = validation_step_ini(params, val_points_init=val_points[-1])  # Compute validation loss

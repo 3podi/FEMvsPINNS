@@ -36,7 +36,7 @@ def sample_training_points(low_b,up_b,num_domain,num_bound,num_ini,validation_po
     """
     Sample training points excluding validation points.
     """
-    
+
     lb = jnp.array(low_b)
     ub = jnp.array(up_b)
     domain_points = lb + (ub-lb)*lhs(2, num_domain)
