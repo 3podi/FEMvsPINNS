@@ -14,7 +14,7 @@ from optimizers import Adam, AdamW
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, points_to_hashable, sample_training_points
 
-from Allen_Cahn_1D.util_gt import ImportData, CompareGT
+#from Allen_Cahn_1D.util_gt import ImportData, CompareGT
 #from Allen_Cahn_1D.util import sample_points
 
 
@@ -58,6 +58,8 @@ def boundary_residual(params, ts): #periodic bc
 def training_step_ini(params, opt, opt_state, val_points):
     init = sample_training_points([0.,0.],[0.05,1.],20000,250,500, val_points, init_only=True)
 
+    init = jax.device_put(init)
+
     loss_val, grad = jax.value_and_grad(lambda params: init_residual(u_init,params, init))(params)    
     params, opt_state = opt.update(params, grad, opt_state)
     return params, opt_state, loss_val
@@ -65,6 +67,10 @@ def training_step_ini(params, opt, opt_state, val_points):
 @partial(jax.jit, static_argnums=(1,))
 def training_step(params, opt, opt_state, val_points):#, u_init):
     domain_points, boundary, init = sample_training_points([0.,0.],[0.05,1.],20000,250,500, val_points)
+
+    domain_points = jax.device_put(domain_points)
+    boundary = jax.device_put(boundary)
+    init = jax.device_put(init)
 
     loss_val, grad = jax.value_and_grad(lambda params: pde_residual(params, domain_points) + 
                                                     1000*init_residual(u_init,params, init) +
@@ -154,6 +160,8 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, val
 
 
 def main():
+    print('Device: ', jax.default_backend())
+
     lr = 1e-4
     init_epochs = 7000
     total_epochs = 50000
@@ -161,6 +169,10 @@ def main():
     validation_freq = 10
 
     val_domain_points, val_boundary, val_init = sample_points([0.,0.],[0.05,1.],2000,100,100)
+    
+    val_domain_points = jax.device_put(val_domain_points)
+    val_boundary = jax.device_put(val_boundary)
+    val_init = jax.device_put(val_init)
 
     #----------------------------------------------------
     # Define architectures list
@@ -193,6 +205,7 @@ def main():
             # Initialize Model
             #----------------------------------------------------
             params = initialize_params(feature)
+            params = jax.device_put(params)
 
             #----------------------------------------------------
             # Initialise Optimiser
