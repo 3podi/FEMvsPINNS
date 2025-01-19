@@ -29,7 +29,7 @@ def filter_points(sampled_points, validation_points):
     - Filtered array of sampled points.
     """
     validation_set = points_to_hashable(validation_points)
-    filtered_points = [point for point in sampled_points if tuple(point) not in validation_set]
+    filtered_points = [point for point in sampled_points if tuple(jnp.round(point, precision=5)) not in validation_set]
     return jnp.array(filtered_points)
 
 def sample_training_points(low_b,up_b,num_domain,num_bound,num_ini,validation_points, init_only=False):
