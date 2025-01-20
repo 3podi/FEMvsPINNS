@@ -125,10 +125,12 @@ def ANN_emb(params, x, embedder):
     Returns:
         jax.numpy.ndarray: Model output.
     """
-    # Embed the input
-    x_embedded = embedder.embed(x[:,1])
+    x = jnp.atleast_2d(x)
+    # Embed the second column of x (x[:, 1])
+    x_embedded = embedder.embed(x[:, 1:2])  # Shape: [N, features]
     x_embedded = jax.lax.stop_gradient(x_embedded)
-    x_embedded = jnp.concatenate([x[:,0], x_embedded], axis=-1)
+    # Concatenate with the first column of x (x[:, 0]) to get shape [N, 1 + features]
+    x_embedded = jnp.concatenate([x[:, 0:1], x_embedded], axis=-1)
 
     # Forward pass through MLP
     layer = x_embedded.T  # Transpose to match weight shape
