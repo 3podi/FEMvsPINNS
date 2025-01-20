@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import jax
 import numpy as np
 
 def initialize_params(architecture_layout):
@@ -49,6 +50,97 @@ def ANN(params, x):
     if i < num_layers - 2:
       layer = relu(layer)
   return layer.T
+  
+
+class Embedder:
+    def __init__(self, input_dims, include_input=True, max_freq_log2=4, num_freqs=6, log_sampling=True, periodic_fns=[jnp.sin, jnp.cos]):
+        """
+        Initializes the embedding layer.
+
+        Args:
+            input_dims (int): Number of input dimensions.
+            include_input (bool): Whether to include the original input in the output.
+            max_freq_log2 (int): Maximum frequency for log-scale sampling.
+            num_freqs (int): Number of frequency bands.
+            log_sampling (bool): Whether to use logarithmic frequency sampling.
+            periodic_fns (list): List of periodic functions (e.g., [sin, cos]).
+        """
+        self.input_dims = input_dims
+        self.include_input = include_input
+        self.max_freq_log2 = max_freq_log2
+        self.num_freqs = num_freqs
+        self.log_sampling = log_sampling
+        self.periodic_fns = periodic_fns
+
+        self._create_embedding_fn()
+
+    def _create_embedding_fn(self):
+        """Generates the embedding functions based on the configuration."""
+        embed_fns = []
+        out_dim = 0
+
+        # Optionally include the input itself
+        if self.include_input:
+            embed_fns.append(lambda x: x)
+            out_dim += self.input_dims
+
+        # Create frequency bands
+        if self.num_freqs > 0:
+            if self.log_sampling:
+                freq_bands = jnp.logspace(0.0, self.max_freq_log2, num=self.num_freqs, base=2.0)
+            else:
+                freq_bands = jnp.linspace(2.0**0.0, 2.0**self.max_freq_log2, num=self.num_freqs)
+
+            # Add sin and cos embeddings for each frequency
+            for freq in freq_bands:
+                for p_fn in self.periodic_fns:
+                    embed_fns.append(lambda x, p_fn=p_fn, freq=freq: p_fn(x * freq))
+                    out_dim += self.input_dims
+
+        self.embed_fns = embed_fns
+        self.out_dim = out_dim
+
+    def embed(self, inputs):
+        """
+        Applies the embedding functions to the input.
+
+        Args:
+            inputs (jax.numpy.ndarray): Input tensor of shape [B, input_dims]
+
+        Returns:
+            jax.numpy.ndarray: Embedded tensor of shape [B, out_dim]
+        """
+        return jnp.concatenate([fn(inputs) for fn in self.embed_fns], axis=-1)
+    
+  
+def ANN_emb(params, x, embedder):
+    """
+    MLP function with an embedder.
+    
+    Args:
+        params (list): List of weight matrices and biases.
+        x (jax.numpy.ndarray): Input tensor of shape [B, D].
+        embedder (Embedder): Embedder object to preprocess inputs.
+    
+    Returns:
+        jax.numpy.ndarray: Model output.
+    """
+    # Embed the input
+    x_embedded = embedder.embed(x[:,1])
+    x_embedded = jax.lax.stop_gradient(x_embedded)
+    x_embedded = jnp.concatenate([x[:,0], x_embedded], axis=-1)
+
+    # Forward pass through MLP
+    layer = x_embedded.T  # Transpose to match weight shape
+    num_layers = len(params) // 2
+
+    for i in range(num_layers):
+        W, b = params[2 * i], params[2 * i + 1]
+        layer = jnp.dot(W, layer) + b
+        if i < num_layers - 1:
+            layer = jnp.maximum(0, layer)  # ReLU activation
+
+    return layer.T  # Transpose back to [B, output_dim]
 
 
 if __name__ == '__main__':
