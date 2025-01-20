@@ -1,6 +1,10 @@
 import jax.numpy as jnp
 import time, jax, os, json
 import scipy.io
+from nn.model import Embedder
+
+embedder = Embedder(input_dims=1, include_input=True, max_freq_log2=4, num_freqs=6, log_sampling=True)
+
 
 class ImportData:
     def __init__(self,name_folder=None, save_dir = './Eval_Points/'):
@@ -34,6 +38,26 @@ class CompareGT:
         
         start_time = time.time()
         approx = jax.block_until_ready(model(tuned_params, domain_pt).squeeze())
+        times_eval = time.time()-start_time
+        
+        approx = approx.reshape(len(dt_coord),len(mesh_coord)) 
+        l2 = []
+
+        for l in range(len(dt_coord)):
+            l2.append(get_relative_error(FEM[int(l)],approx[int(l),:]))
+
+        return l2, times_eval, approx, FEM, domain_pt
+
+class CompareGT_embd:
+
+    def get_FEM_comparison(mesh_coord,dt_coord,FEM,model,tuned_params):
+        dom_mesh = jnp.asarray(mesh_coord).squeeze()
+        dom_mesh_ = jnp.tile(dom_mesh,len(dt_coord)) #repeating the dom_mesh, dt_coord_100.shape-times
+        dom_ts = jnp.repeat(jnp.array(dt_coord),len(mesh_coord)) #repeating ts, len(mesh_coord)-times
+        domain_pt = jnp.stack((dom_ts,dom_mesh_),axis=1) #stacking them together, meaning for each mesh coordinate we look at every time instance in ts
+        
+        start_time = time.time()
+        approx = jax.block_until_ready(model(tuned_params, domain_pt, embedder).squeeze())
         times_eval = time.time()-start_time
         
         approx = approx.reshape(len(dt_coord),len(mesh_coord)) 

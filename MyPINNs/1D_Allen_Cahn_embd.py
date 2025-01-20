@@ -14,7 +14,7 @@ from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, sample_training_points, plot_losses
 
-from util_gt import ImportData, CompareGT
+from util_gt import ImportData, CompareGT_embd
 #from Allen_Cahn_1D.util import sample_points
 
 embedder = Embedder(input_dims=1, include_input=True, max_freq_log2=4, num_freqs=6, log_sampling=True)
@@ -255,7 +255,7 @@ def main():
             # Evaluation
             #tuned_params = unconcat_params(results.position, tree, shapes)
             
-            l2, times_temp, approx, gt_fem, domain_pt = CompareGT.get_FEM_comparison(mesh_coord,dt_coord,FEM,ANN,params)
+            l2, times_temp, approx, gt_fem, domain_pt = CompareGT.get_FEM_comparison(mesh_coord,dt_coord,FEM,ANN_emb,params)
             times_eval_temp.append(times_temp)
             l2_errors.append(jnp.mean(jnp.array(l2)))
 
