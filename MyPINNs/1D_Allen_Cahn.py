@@ -147,7 +147,7 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, n_p
             loss_val = validation_step(params, val_points)  # Compute validation loss
             for k,v in loss_val.items():
                 val_losses_dict[k].append(v.item())
-            print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}, Val Loss: {loss_val.item():.6f}")
+            print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {train_losses_dict['total_loss'][-1]:.6f}, Val Loss: {val_losses_dict['total_loss'][-1]:.6f}")
             if best_loss - val_losses_dict['total_loss'][-1] > 0.01:
                 best_loss = val_losses_dict['total_loss'][-1]  # Update best loss
                 patience = n_patience  # Reset patience
