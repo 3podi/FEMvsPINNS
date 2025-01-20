@@ -255,7 +255,7 @@ def main():
             # Evaluation
             #tuned_params = unconcat_params(results.position, tree, shapes)
             
-            l2, times_temp, approx, gt_fem, domain_pt = CompareGT.get_FEM_comparison(mesh_coord,dt_coord,FEM,ANN_emb,params)
+            l2, times_temp, approx, gt_fem, domain_pt = CompareGT_embd.get_FEM_comparison(mesh_coord,dt_coord,FEM,ANN_emb,params)
             times_eval_temp.append(times_temp)
             l2_errors.append(jnp.mean(jnp.array(l2)))
 
