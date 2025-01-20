@@ -75,6 +75,40 @@ class Adam:
         }
 
         return updated_params, updated_state
+    
+
+class Adam2:
+    def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8):
+        self.learning_rate = learning_rate
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon = epsilon
+
+    def init(self, params):
+        m = jax.tree_map(jnp.zeros_like, params)
+        v = jax.tree_map(jnp.zeros_like, params)
+        
+        return {'momentum': m, 
+                'velocity': v,
+                'beta1_power': jnp.array(self.beta1),
+                'beta2_power': jnp.array(self.beta2),
+                }
+
+    def update(self, params, grads, state):
+
+        m = state['momentum']
+        v = state['velocity']
+
+        m = jax.tree_map(lambda g, m: self.beta1 * m + (1 - self.beta1) * g, grads, m)
+        v = jax.tree_map(lambda g, v: self.beta2 * v + (1 - self.beta2) * jnp.square(g), grads, v)
+
+        m_hat = jax.tree_map(lambda m: m / (1 - state['beta1_power']), m)
+        v_hat = jax.tree_map(lambda v: v / (1 - state['beta2_power']), v)
+
+        params = jax.tree_map(lambda p, m_hat, v_hat: p - self.learning_rate * m_hat / (jnp.sqrt(v_hat) + self.epsilon), params, m_hat, v_hat)
+        state = {'momentum': m, 'velocity': v, 'beta1_power': state['beta1_power'] * self.beta1, 'beta2_power': state['beta2_power'] * self.beta2}
+        
+        return params, state
             
 
 class AdamW:

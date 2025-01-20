@@ -10,7 +10,7 @@ import json
 import numpy.random as npr
 
 from nn.model import ANN, initialize_params
-from optimizers import Adam, AdamW
+from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, sample_training_points, plot_losses
 
@@ -236,7 +236,7 @@ def main():
             # Start Training
             #----------------------------------------------------
             start_time = time.time() 
-            train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, init_epochs, total_epochs, patience=5, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
+            train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, init_epochs, total_epochs, n_patience=5, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
             #print("Adam training time: ", adam_time)
