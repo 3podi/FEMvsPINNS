@@ -139,13 +139,13 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, n_p
         # Perform a training step
         params, opt_state, loss_train = training_step(params, adam, opt_state, val_points)
         
-        for k,v in loss_train:
+        for k,v in loss_train.items():
             train_losses_dict[k].append(v.item())
         
         # Validation step (every `validate_every` epochs)
         if (epoch + 1) % validate_every == 0:
             loss_val = validation_step(params, val_points)  # Compute validation loss
-            for k,v in loss_val:
+            for k,v in loss_val.items():
                 val_losses_dict[k].append(v.item())
             print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}, Val Loss: {loss_val.item():.6f}")
             if best_loss - val_losses_dict['total_loss'][-1] > 0.01:
