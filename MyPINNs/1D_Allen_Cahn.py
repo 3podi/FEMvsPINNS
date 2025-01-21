@@ -12,7 +12,7 @@ import numpy.random as npr
 from nn.model import ANN, initialize_params
 from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
-from dataset.util_Allen_1D import sample_points, sample_training_points, plot_losses
+from dataset.util_Allen_1D import sample_points, sample_training_points
 
 from util_gt import ImportData, CompareGT
 #from Allen_Cahn_1D.util import sample_points
@@ -66,7 +66,7 @@ def training_step_ini(params, opt, opt_state, val_points):
 
 @partial(jax.jit, static_argnums=(1,))
 def training_step(params, opt, opt_state, val_points):#, u_init):
-    domain_points, boundary, init = sample_training_points([0.,0.],[0.05,1.],15000,250,500, val_points)
+    domain_points, boundary, init = sample_training_points([0.,0.],[0.05,1.],20000,250,500, val_points)
 
     domain_points = jax.device_put(domain_points)
     boundary = jax.device_put(boundary)
@@ -182,7 +182,7 @@ def main():
     # Define architectures list
     #----------------------------------------------------
     #architecture_list = [[2,20,20,20,1],[2,100,100,100,1],[2,500,500,500,1],[2,20,20,20,20,1],[2,100,100,100,100,1],[2,500,500,500,500,1],[2,20,20,20,20,20,1],[2,100,100,100,100,100,1],[2,500,500,500,500,500,1],[2,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,1],[2,500,500,500,500,500,500,1],[2,20,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,100,1]]
-    architecture_list = [[2,20,20,20,1]]
+    architecture_list = [[2,100,100,100,100,1],[2,100,100,100,1],[2,20,20,20,1],[2,20,20,20,20,1],[2,20,20,20,20,20,1]]
     
     #----------------------------------------------------
     # Load GT solution
@@ -196,7 +196,7 @@ def main():
     #----------------------------------------------------
     # Train model 10 times and average over the times
     u_results = dict({})
-    times_adam, times_eval, l2_rel, var, arch  = None, None, None, None, None #dict({}), dict({}), dict({}), dict({}), dict({})
+    times_adam, times_eval, l2_rel, var, arch  = None, None, None, None, None
     print('Start training')
     for feature in architecture_list:
         print('Architecture: ', feature)
