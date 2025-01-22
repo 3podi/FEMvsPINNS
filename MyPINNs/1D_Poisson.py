@@ -119,7 +119,7 @@ def main():
     total_epochs = 15000
     validation_freq = 50
 
-    val_domain_points, val_boundary, val_init = sample_points()
+    val_domain_points, val_boundary = sample_points()
     
     val_domain_points = jax.device_put(val_domain_points)
     val_boundary = jax.device_put(val_boundary)
