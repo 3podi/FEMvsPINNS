@@ -40,7 +40,7 @@ def sample_training_points(validation_points, low_b=0.,up_b=1.,num_domain=256):
     lb = jnp.array(low_b)
     ub = jnp.array(up_b)
     domain_points = lb + (ub-lb)*lhs(2, num_domain)
-    boundary_points = lb[0] + (ub[0]-lb[0])*lhs(1, 2)
+    boundary_points = lb + (ub-lb)*lhs(1, 2)
 
     val_domain_points =validation_points[0]
 
