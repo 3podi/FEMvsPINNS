@@ -22,7 +22,7 @@ from util_gt import ImportData, CompareGT
 #----------------------------------------------------
 # Hessian-vector product
 def hvp(f, primals, tangents):
-    return jax.jvp(jax.grad(lambda x: f(x)[0]), primals, tangents)[1]
+    return jax.jvp(jax.grad(lambda x: jnp.squeeze(f(x))[0]), primals, tangents)[1]
 
 # PDE residual for 1D Poisson
 @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
@@ -84,8 +84,8 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
         
     for epoch in range(num_epochs):
         # Lr scheduler step
-        lr = lr_scheduler.get_lr()
-        adam.learning_rate = lr
+        #lr = lr_scheduler.get_lr()
+        #adam.learning_rate = lr
 
         # Perform a training step
         params, opt_state, loss_train = training_step(params, adam, opt_state, val_points)
@@ -140,7 +140,6 @@ def main():
         print('Architecture: ', feature)
         times_adam_temp = []
         times_eval_temp = []
-        accuracy_temp = []
         l2_errors = []
         for _ in range(1):
             #----------------------------------------------------
@@ -179,7 +178,7 @@ def main():
             l2_errors.append(run_accuracy)
 
         y_gt = (domain_points*jnp.exp(-domain_points**2)).tolist()
-        domain_pts = domain_pts.tolist()
+        domain_pts = domain_points.tolist()
         y_results = u_approx.tolist()
         times_adam, times_eval, l2_rel, var, arch = onp.mean(times_adam_temp), onp.mean(times_eval_temp), onp.mean(jnp.array(l2_errors)).tolist(), onp.var(jnp.array(l2_errors)).tolist(), feature
 

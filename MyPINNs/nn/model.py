@@ -41,14 +41,18 @@ def ANN(params, x):
     x: input shape [B,D]
   """
 
+  if x.ndim == 1:
+    x = x[:, None]  # Reshape (D,) -> (D, 1)
+
   layer = x.T
+
   num_layers = int(len(params) / 2 + 1)
   weights = params[0::2]
   biases = params[1::2]
   for i in range(num_layers - 1):
     layer = jnp.dot(weights[i], layer) - biases[i]
     if i < num_layers - 2:
-      layer = relu(layer)
+      layer = jnp.tanh(layer)
   return layer.T
   
 
