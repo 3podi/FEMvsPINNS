@@ -52,8 +52,8 @@ def boundary_dirichlet(params, points):
 #----------------------------------------------------
 # Define Training Step
 #----------------------------------------------------
-@partial(jax.jit, static_argnums=(1,4))
-def training_step(params, opt, opt_state, val_points, neumann_derivatives):
+@partial(jax.jit, static_argnums=(1,))
+def training_step(params, opt, opt_state, val_points):
     domain_points, boundary_points = sample_training_points(val_points, low_b=[0.,0.,0.], up_b=[1.,1.,1.])
 
     domain_points = jax.device_put(domain_points)
@@ -168,10 +168,10 @@ def main():
             domain_points = jax.random.uniform(key, shape=(N, 3), minval=0.0, maxval=1.0)
 
             start_time3 = time.time()
-            u_approx = ANN(params, jnp.stack((domain_points[:,0], domain_points[:,1]),axis=1),dim=3).squeeze()
+            u_approx = ANN(params, domain_points,dim=3).squeeze()
             times_eval_temp.append(time.time()-start_time3)
 
-            u_true = analytic_sol(domain_points[:,0],domain_points[:,1]).squeeze()
+            u_true = analytic_sol(domain_points[:,0],domain_points[:,1],domain_points[:,2]).squeeze()
             run_accuracy = (onp.linalg.norm(u_approx - u_true))/onp.linalg.norm(u_true)
             l2_errors.append(run_accuracy)
 
