@@ -11,77 +11,57 @@ from nn.model import initialize_params
 from nn.model import ANN2 as ANN
 from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
-from dataset.util_Poisson_2D import sample_points, sample_training_points
+from dataset.util_Poisson_3D import sample_points, sample_training_points
 
 
 #----------------------------------------------------
 # Define Loss Function
 #----------------------------------------------------
 # Analytic solution of the 2D Poisson equation
-@partial(jax.vmap, in_axes=(0, 0), out_axes=0)
+@partial(jax.vmap, in_axes=(0, 0, 0), out_axes=0)
 @jax.jit
-def analytic_sol(xs,ys):
-    out = (xs**2) * ((xs-1)**2) * ys * ((ys-1)**2)
+def analytic_sol(xs,ys,zs):
+    out = jnp.sin(xs*jnp.pi)*jnp.sin(ys*jnp.pi)*jnp.sin(zs*jnp.pi)
     return out
 
-
-@jax.jit
-def analytic_sol1(xs,ys):
-    out = (xs**2) * ((xs-1)**2) * ys * ((ys-1)**2)
-    return out
-
-# Derivatives for the Neumann Boundary Conditions
-@partial(jax.vmap, in_axes=(None, 0, 0,), out_axes=(0, 0, 0))
-@jax.jit
-def neumann_derivatives(params,xs,ys):
-    u = lambda x, y: ANN(params, jnp.stack((x, y)),dim=2)
-    du_dx_0 = jax.jvp(u,(0.,ys),(1.,0.))[1]
-    du_dx_1 = jax.jvp(u,(1.,ys),(1.,0.))[1]
-    du_dy_1 = jax.jvp(u,(xs,1.),(0.,1.))[1]
-    return du_dx_0, du_dx_1, du_dy_1
-
-# PDE residual for 2D Poisson
-@partial(jax.vmap, in_axes=(None, 0, 0), out_axes=0)
+# PDE residual for 3D Poisson
+@partial(jax.vmap, in_axes=(None, 0, 0, 0), out_axes=0)
 @partial(jax.jit, static_argnums=(0,))
-def residual(u, x, y):
-    H1 = jax.hessian(u, argnums=0)(x,y)
-    H2 = jax.hessian(u, argnums=1)(x,y)
-    lhs = H1+H2
-    rhs = 2*((x**4)*(3*y-2) + (x**3)*(4-6*y) + (x**2)*(6*(y**3)-12*(y**2)+9*y-2) - 6*x*((y-1)**2)*y + ((y-1)**2)*y )
+def residual(u, x, y, z):
+    Hx = jax.hessian(u, argnums=0)(x,y,z)
+    Hy = jax.hessian(u, argnums=1)(x,y,z)
+    Hz = jax.hessian(u, argnums=2)(x,y,z)
+    lhs = Hx+Hy+Hz
+    rhs = (-3*(jnp.pi**2))*jnp.sin(x*jnp.pi)*jnp.sin(y*jnp.pi)*jnp.sin(z*jnp.pi)
     return lhs - rhs
 
 # Loss functionals
 @jax.jit
 def pde_residual(params, points):
-    return jnp.mean(residual(lambda x, y: ANN(params, jnp.stack((x, y)),dim=2), points[:, 0], points[:, 1])**2)
-
-
-@partial(jax.jit, static_argnums=0)
-def pde_true(analytic_sol,params, points):
-    return jnp.mean((ANN(params, jnp.stack((points[:, 0], points[:, 1]), axis=1),dim=2) - analytic_sol(points[:, 0], points[:, 1]) )**2)
+    return jnp.mean(residual(lambda x, y, z: ANN(params, jnp.stack((x, y, z))), points[:, 0], points[:, 1], points[:, 2])**2)
 
 @jax.jit
-def boundary_dirichlet(params, points): # u(x,0) = 0
-    return jnp.mean((ANN(params, jnp.stack((points[:,0],jnp.zeros_like(points[:,1])), axis=1),dim=2))**2) 
-
-@partial(jax.jit, static_argnums=0) # du/dx(0,y) = 0, du/dx(1,y) = 0, du/dy(x,1) = 0
-def boundary_neumann(neumann_derivatives, params, points):
-    du_dx_0, du_dx_1, du_dy_1 = neumann_derivatives(params,points[:,0],points[:,1])
-    return jnp.mean((du_dx_0)**2) + jnp.mean((du_dx_1)**2) + jnp.mean((du_dy_1)**2)
+def boundary_dirichlet(params, points): 
+    u_x0 = jnp.mean((ANN(params, jnp.stack((jnp.zeros(*points[:, 0].shape), points[:, 1], points[:, 2]), axis=1)))**2) # u(0,y,z) = 0
+    u_x1 = jnp.mean((ANN(params, jnp.stack((jnp.ones(*points[:, 0].shape), points[:, 1], points[:, 2]), axis=1)))**2) # u(1,y,z) = 0
+    u_y0 = jnp.mean((ANN(params, jnp.stack((points[:, 0], jnp.zeros(*points[:, 1].shape), points[:, 2]), axis=1)))**2) # u(x,0,z) = 0
+    u_y1 = jnp.mean((ANN(params, jnp.stack((points[:, 0], jnp.ones(*points[:, 1].shape), points[:, 2]), axis=1)))**2) # u(x,1,z) = 0
+    u_z0 = jnp.mean((ANN(params, jnp.stack((points[:, 0], points[:, 1], jnp.zeros(*points[:, 2].shape)), axis=1)))**2) # u(x,y,0) = 0
+    u_z1 = jnp.mean((ANN(params, jnp.stack((points[:, 0], points[:, 1], jnp.ones(*points[:, 2].shape)), axis=1)))**2) # u(x,y,1) = 0
+    return u_x0 + u_x1 + u_y0 + u_y1 + u_z0 + u_z1
 #----------------------------------------------------
 # Define Training Step
 #----------------------------------------------------
 @partial(jax.jit, static_argnums=(1,4))
 def training_step(params, opt, opt_state, val_points, neumann_derivatives):
-    domain_points, boundary_points = sample_training_points(val_points, low_b=[0.,0.], up_b=[1.,1.])
+    domain_points, boundary_points = sample_training_points(val_points, low_b=[0.,0.,0.], up_b=[1.,1.,1.])
 
     domain_points = jax.device_put(domain_points)
     boundary_points = jax.device_put(boundary_points)
 
     loss_val, grad = jax.value_and_grad(lambda params: pde_residual(params, domain_points) + 
-                                                    boundary_dirichlet(params, boundary_points) +
-                                                    boundary_neumann(neumann_derivatives, params, boundary_points))(params)
-    
+                                                    boundary_dirichlet(params, boundary_points))(params)
+  
     params, opt_state = opt.update(params, grad, opt_state)
     return params, opt_state, loss_val
 
@@ -92,14 +72,13 @@ def validation_step(params, val_points):
     # Define a loss function for delayed computation
     loss_fn = lambda p: (
         pde_residual(p, val_domain_xs) + 
-        boundary_dirichlet(p, val_boundary_xs) +
-        boundary_neumann(neumann_derivatives, p, val_boundary_xs)
+        boundary_dirichlet(p, val_boundary_xs)
     )
 
     return loss_fn(params)
 
 
-def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, validate_every=10, lr_scheduler=None, neumann_derivatives=neumann_derivatives):
+def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, validate_every=10, lr_scheduler=None):
     train_losses = []
     val_losses = []
     best_loss = 3000
@@ -111,7 +90,7 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
         #adam.learning_rate = lr
 
         # Perform a training step
-        params, opt_state, loss_train = training_step(params, adam, opt_state, val_points, neumann_derivatives)
+        params, opt_state, loss_train = training_step(params, adam, opt_state, val_points)
         train_losses.append(loss_train.item())
         
         # Validation step (every `validate_every` epochs)
@@ -139,7 +118,7 @@ def main():
     total_epochs = 20000
     validation_freq = 50
 
-    val_domain_points, val_boundary = sample_points(low_b=[0.,0.], up_b=[1.,1.])
+    val_domain_points, val_boundary = sample_points(low_b=[0.,0.,0.], up_b=[1.,1.,1.])
     
     val_domain_points = jax.device_put(val_domain_points)
     val_boundary = jax.device_put(val_boundary)
@@ -147,7 +126,8 @@ def main():
     #----------------------------------------------------
     # Define architectures list
     #----------------------------------------------------
-    architecture_list = [[2,20,1],[2,60,1],[2,20,20,1],[2,60,60,1],[2,20,20,20,1],[2,60,60,60,1]]#,[20,20,20,20,1],[60,60,60,60,1]]
+    architecture_list = [[3,20,20,1],[3,60,60,1],[3,20,20,20,1],[3,60,60,60,1],[3,20,20,20,20,1],[3,60,60,60,60,1],[3,20,20,20,20,20,1],[3,60,60,60,60,60,1]]
+    
     #----------------------------------------------------
     # Train PINN
     #----------------------------------------------------
@@ -181,15 +161,14 @@ def main():
             train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, total_epochs, n_patience=5, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary])
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
-            #print("Adam training time: ", adam_time)
 
-            
-            with open("./Eval_Points/2D_Poisson_eval-points.json", 'r') as f:
-                domain_points = json.load(f)
-                domain_points = jnp.array(domain_points)
+            # Set random seed
+            key = jax.random.PRNGKey(0)
+            N = 2000 
+            domain_points = jax.random.uniform(key, shape=(N, 3), minval=0.0, maxval=1.0)
 
             start_time3 = time.time()
-            u_approx = ANN(params, jnp.stack((domain_points[:,0], domain_points[:,1]),axis=1),dim=2).squeeze()
+            u_approx = ANN(params, jnp.stack((domain_points[:,0], domain_points[:,1]),axis=1),dim=3).squeeze()
             times_eval_temp.append(time.time()-start_time3)
 
             u_true = analytic_sol(domain_points[:,0],domain_points[:,1]).squeeze()
@@ -211,7 +190,7 @@ def main():
             'l2_rel': l2_rel,
             'var': var})
 
-        save_dir = './MyPINNS_results/2D-Poisson-PINN'
+        save_dir = './MyPINNS_results/3D-Poisson-PINN'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
 

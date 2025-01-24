@@ -55,6 +55,28 @@ def ANN(params, x):
       layer = jnp.tanh(layer)
   return layer.T
   
+def ANN2(params, x, dim=3):
+  """
+  MLP function
+  Input:
+    params: list of weight matrices and biases previously initialized [list]
+    x: input shape [B,D]
+  """
+
+  if x.ndim == 1:
+    x = x.reshape(-1, dim)
+
+  layer = x.T
+
+  num_layers = int(len(params) / 2 + 1)
+  weights = params[0::2]
+  biases = params[1::2]
+  for i in range(num_layers - 1):
+    layer = jnp.dot(weights[i], layer) - biases[i]
+    if i < num_layers - 2:
+      layer = jnp.tanh(layer)
+  return layer.T
+
 
 class Embedder:
     def __init__(self, input_dims, include_input=True, max_freq_log2=4, num_freqs=6, log_sampling=True, periodic_fns=[jnp.sin, jnp.cos]):
