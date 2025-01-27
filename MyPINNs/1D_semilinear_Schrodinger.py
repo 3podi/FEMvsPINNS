@@ -11,7 +11,7 @@ from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Sch_1D import sample_points, sample_training_points
 
-from 1D_Sch_semilinear.util_gt import ImportData, CompareGT 
+from util.util_gt_1D_sch import ImportData, CompareGT 
 
 #----------------------------------------------------
 # Define Loss Function
