@@ -144,7 +144,7 @@ def main():
     #----------------------------------------------------
     GTloader = ImportData(name_folder='1D_Schroedinger')
     mesh_coord, dt_coord = GTloader.get_FEM_coordinates()
-    FEM = GTloader.get_FEM_results()
+    FEM_real,FEM_imag,FEM_sq = GTloader.get_FEM_results()
 
     #----------------------------------------------------
     # Train PINN
