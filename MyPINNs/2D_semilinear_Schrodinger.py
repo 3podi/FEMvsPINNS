@@ -9,64 +9,100 @@ from nn.model import initialize_params
 from nn.model import ANN2 as ANN
 from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
-from dataset.util_Sch_1D import sample_points, sample_training_points
+from dataset.util_Sch_2D import sample_points, sample_training_points
 
-from util.util_gt_1D_sch import ImportData, CompareGT 
+from util.util_gt_2D_sch import ImportData, CompareGT 
 
 #----------------------------------------------------
 # Define Loss Function
 #----------------------------------------------------
-# PDE residual for 1D Semilinear Schrödinger
-@partial(jax.vmap, in_axes=(None, 0, 0), out_axes=0)
+# PDE residual for 2D Semilinear Schrödinger
+@partial(jax.vmap, in_axes=(None, 0, 0, 0), out_axes=0)
 @partial(jax.jit, static_argnums=(0,))
-def residual(u, t, x):
-    u_t = jax.jvp(u, (t, x), (1., 0.))[1]
+def residual(u, t, x, y):
+    u_t = jax.jvp(u, (t, x, y), (1., 0., 0.))[1]
     u_real_t = u_t[0]
     u_imag_t = u_t[1]
-    u_xx = jax.hessian(u, argnums=1)(t, x)
-    u_real_xx = u_xx[0]
-    u_imag_xx = u_xx[1]
 
-    h = (u(t,x)[0])**2 + (u(t,x)[1])**2
+    du_dxx = jax.hessian(u, argnums=1)(t,x,y)
+    du_dyy = jax.hessian(u, argnums=2)(t,x,y)
+    u_real_xx = du_dxx[0]
+    u_imag_xx = du_dxx[1]
+    u_real_yy = du_dyy[0]
+    u_imag_yy = du_dyy[1]
 
-    f_real = -u_imag_t + 0.5*u_real_xx + h*u(t,x)[0] 
-    f_imag = u_real_t + 0.5*u_imag_xx + h*u(t,x)[1]
+    h = (u(t,x,y)[0])**2 + (u(t,x,y)[1])**2
+
+    f_real = -u_imag_t + 0.5*(u_real_xx+u_real_yy) + h*u(t,x,y)[0] 
+    f_imag = u_real_t + 0.5*(u_imag_xx+u_imag_yy) + h*u(t,x,y)[1]
+
     return f_real, f_imag
 
-# Inital condition
-@partial(jax.vmap, in_axes=0)
-def u_init(xs):
-    return jnp.array([2./jnp.cosh(xs), 0.])
+# Initial condition
+@jax.vmap
+def u_init(xs,ys):
+    return jnp.array([1./jnp.cosh(xs) + 0.5*(1./jnp.cosh(ys-2)) + 0.5*(1./jnp.cosh(ys+2)), 0.])
+
+# Helper functions for boundary condition
+@partial(jax.vmap, in_axes=(None, 0, 0, 0), out_axes=0)
+def u_x(u,t,x,y):
+    u_x = jax.jvp(u, (t,x,y), (0., 1., 0.))[1]
+    return u_x
+
+@partial(jax.vmap, in_axes=(None, 0, 0, 0), out_axes=0)
+def u_y(u,t,x,y):
+    u_y = jax.jvp(u, (t,x,y), (0., 0., 1.))[1]
+    return u_y
 
 # Loss functionals
 @jax.jit
 def pde_residual(params, points):
-    f_real, f_imag = residual(lambda t, x: ANN(params, jnp.stack((t, x)),dim=2), points[:, 0], points[:, 1])
+    f_real, f_imag = residual(lambda t, x, y: ANN(params, jnp.stack((t, x, y)),dim=3), points[:, 0], points[:, 1], points[:, 2])
     return jnp.mean(f_real**2) + jnp.mean(f_imag**2)
 
 @partial(jax.jit, static_argnums=0)
-def init_residual(u_init, params, xs):
-    return jnp.mean((ANN(params, jnp.stack((jnp.zeros_like(xs[:,0]), xs[:,0]), axis=1), dim=2) - u_init(xs[:,0]))**2)
+def init_residual(u_init, params, points):
+    return jnp.mean((ANN(params, jnp.stack((jnp.zeros(*points[:,0].shape), points[:,0], points[:,2]), axis=1), dim=3) - u_init(points[:,0],  points[:,2]))**2)
 
 @jax.jit
-def boundary_residual(params, ts):
-    return jnp.mean((ANN(params, jnp.stack((ts[:,0], 5 * jnp.ones_like(ts[:,0])), axis=1), dim=2) - 
-                                  ANN(params, jnp.stack((ts[:,0], -5 * jnp.ones_like(ts[:,0])), axis=1), dim=2))**2)
+def boundary_residual_x(params, points):
+    return jnp.mean((ANN(params, jnp.stack((points[:,0], 5 * jnp.ones(*points[:,0].shape), points[:,2]), axis=1), dim=3) - 
+                                  ANN(params, jnp.stack((points[:,0], -5 * jnp.ones(*points[:,0].shape), points[:,2]), axis=1), dim=3))**2)
+
+@jax.jit
+def boundary_residual_y(params, points):
+    return jnp.mean((ANN(params, jnp.stack((points[:,0], points[:,1], 5 * jnp.ones(*points[:,0].shape)), axis=1), dim=3) - 
+                                  ANN(params, jnp.stack((points[:,0], points[:,1], -5 * jnp.ones(*points[:,0].shape)), axis=1), dim=3))**2)
+
+@jax.jit
+def boundary_residual_x_der(params, points):
+    u_x5 = u_x(lambda t, x, y: ANN(params, jnp.stack((t, x, y)), dim=3), points[:,0], 5 * jnp.ones(*points[:,0].shape), points[:,2])
+    u_xm5 = u_x(lambda t, x, y: ANN(params, jnp.stack((t, x, y)), dim=3), points[:,0], -5 * jnp.ones(*points[:,0].shape), points[:,2])
+    return jnp.mean((u_x5 - u_xm5)**2)
+
+@jax.jit
+def boundary_residual_y_der(params, points):
+    u_y5 = u_y(lambda t, x, y: ANN(params, jnp.stack((t, x, y)), dim=3), points[:,0], points[:,1], 5 * jnp.ones(*points[:,0].shape))
+    u_ym5 = u_y(lambda t, x, y: ANN(params, jnp.stack((t, x, y)), dim=3), points[:,0], points[:,1], -5 * jnp.ones(*points[:,0].shape))
+    return jnp.mean((u_y5 - u_ym5)**2)
 
 #----------------------------------------------------
 # Define Training Step
 #----------------------------------------------------
 @partial(jax.jit, static_argnums=(1,))
 def training_step(params, opt, opt_state, val_points):#, u_init):
-    domain_points, boundary, init = sample_training_points([0.,-5.],[1.,5.],20000,50,50, val_points)
+    domain_points, boundary, init = sample_training_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100, val_points)
 
     domain_points = jax.device_put(domain_points)
     boundary = jax.device_put(boundary)
     init = jax.device_put(init)
 
     loss_val, grad = jax.value_and_grad(lambda params: pde_residual(params, domain_points) + 
-                                                       init_residual(u_init,params, init) +
-                                                       boundary_residual(params, boundary))(params)
+                                                    init_residual(u_init, params, init) +
+                                                    boundary_residual_x(params, boundary) +
+                                                    boundary_residual_y(params, boundary)+
+                                                    boundary_residual_x_der(params, boundary)+
+                                                    boundary_residual_y_der(params,boundary))(params)
     
     params, opt_state = opt.update(params, grad, opt_state)
     return params, opt_state, loss_val
@@ -81,7 +117,10 @@ def validation_step(params, val_points):
     loss_val = (
         pde_residual(params, val_domain_points) +
         init_residual(u_init, params, val_init) +
-        boundary_residual(params, val_boundary)
+        boundary_residual_x(params, val_boundary) +
+        boundary_residual_y(params, val_boundary)+
+        boundary_residual_x_der(params, val_boundary)+
+        boundary_residual_y_der(params, val_boundary)
     )
 
     return loss_val
@@ -113,9 +152,9 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
             else:
                 patience -= 1
             
-            #if patience == 0:
-            #    print('Early stopping the training, best val_loss: ', best_loss)
-            #    break
+            if patience == 0:
+                print('Early stopping the training, best val_loss: ', best_loss)
+                break
             
     
     return train_losses, val_losses, params, opt_state
@@ -128,7 +167,7 @@ def main():
     total_epochs = 50000
     validation_freq = 50
 
-    val_domain_points, val_boundary, val_init = sample_points([0.,-5.],[1.,5.],5000,100,100)
+    val_domain_points, val_boundary, val_init = sample_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100)
     
     val_domain_points = jax.device_put(val_domain_points)
     val_boundary = jax.device_put(val_boundary)
@@ -137,7 +176,7 @@ def main():
     #----------------------------------------------------
     # Define architectures list
     #----------------------------------------------------
-    architecture_list = [[2,20,20,20,2],[2,100,100,100,2],[2,20,20,20,20,2],[2,100,100,100,100,2],[2,20,20,20,20,20,2],[2,100,100,100,100,100,2],[2,20,20,20,20,20,20,2],[2,100,100,100,100,100,100,2]]
+    architecture_list = [[3,20,20,20,2],[3,100,100,100,2],[3,20,20,20,20,2],[3,100,100,100,100,2],[3,20,20,20,20,20,2],[3,100,100,100,100,100,2]]
 
     #----------------------------------------------------
     # Load GT solution
@@ -182,7 +221,7 @@ def main():
             # Start Training
             #----------------------------------------------------
             start_time = time.time() 
-            train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, total_epochs, n_patience=5, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
+            train_losses, val_losses, params, opt_state, = train_loop(params, optimizer, opt_state, total_epochs, n_patience=10, validate_every=validation_freq, lr_scheduler=lr_scheduler, val_points=[val_domain_points,val_boundary,val_init])
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
             #print("Adam training time: ", adam_time)
@@ -217,7 +256,7 @@ def main():
             'var_v': var_v,
             'var_h': var_h})
 
-        save_dir = './MyPINNS_results/1D-Schroedinger-PINN'
+        save_dir = './MyPINNS_results/2D-Schroedinger-PINN'
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
 
