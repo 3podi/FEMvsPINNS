@@ -98,6 +98,7 @@ def unflatten_params(flat_params, param_shapes):
     params = []
     start_idx = 0
     for shape in param_shapes:
+        shape = jnp.array(shape) 
         size = jnp.prod(shape)
         param = flat_params[start_idx:start_idx + size].reshape(shape)
         params.append(param)
@@ -124,7 +125,7 @@ def compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, pa
     return loss_val, grad_flat
 
 # L-BFGS Optimization Loop
-def lbfgs_optimizer(ANN_params, domain_points=None, u_init=None, boundary=None, init=None, val_points=None, max_epochs=1000, tol=1e-8, m=10):
+def lbfgs_optimizer(ANN_params, domain_points=None, boundary=None, init=None, val_points=None, max_epochs=1000, tol=1e-8, m=10):
 
     # Initialize parameters
     param_shapes = [param.shape for param in ANN_params]  # Store original shapes for unflattening
