@@ -2,6 +2,7 @@ import os
 import jax, time
 import jax.numpy as jnp
 import numpy as onp
+import scipy as sp
 from functools import partial
 import json
 
@@ -85,6 +86,121 @@ def boundary_residual_y_der(params, points):
     u_y5 = u_y(lambda t, x, y: ANN(params, jnp.stack((t, x, y)), dim=3), points[:,0], points[:,1], 5 * jnp.ones(*points[:,0].shape))
     u_ym5 = u_y(lambda t, x, y: ANN(params, jnp.stack((t, x, y)), dim=3), points[:,0], points[:,1], -5 * jnp.ones(*points[:,0].shape))
     return jnp.mean((u_y5 - u_ym5)**2)
+
+#----------
+# Define L-BFGS
+# ----------
+# Flatten the parameters into a single vector for optimization
+def flatten_params(params):
+    return jnp.concatenate([param.flatten() for param in params])
+
+def unflatten_params(flat_params, param_shapes):
+    params = []
+    start_idx = 0
+    for shape in param_shapes:
+        size = jnp.prod(shape)
+        param = flat_params[start_idx:start_idx + size].reshape(shape)
+        params.append(param)
+        start_idx += size
+    return params
+
+
+# Loss and gradient function (we modify this to handle flattened parameters)
+def compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, param_shapes):
+    # Unflatten parameters
+    params = unflatten_params(flat_params, param_shapes)
+    
+    # Compute the loss and gradients
+    loss_val, grad = jax.value_and_grad(lambda params: 
+                                         pde_residual(params, domain_points) + 
+                                         init_residual(u_init, params, init) +
+                                         boundary_residual_x(params, boundary) +
+                                         boundary_residual_y(params, boundary) +
+                                         boundary_residual_x_der(params, boundary) +
+                                         boundary_residual_y_der(params,boundary))(params)
+    
+    # Flatten the gradient to match the optimization format
+    grad_flat = flatten_params(grad)
+    return loss_val, grad_flat
+
+# L-BFGS Optimization Loop
+def lbfgs_optimizer(ANN_params, domain_points=None, u_init=None, boundary=None, init=None, val_points=None, max_epochs=1000, tol=1e-8, m=10):
+
+    # Initialize parameters
+    param_shapes = [param.shape for param in ANN_params]  # Store original shapes for unflattening
+    flat_params = flatten_params(ANN_params)  # Flatten the parameters
+    epoch = 0
+    history = []
+
+    # Initialize L-BFGS variables
+    s_history = []  # History of s = x_new - x
+    y_history = []  # History of y = grad_new - grad
+    rho_history = []  # History of rho = 1 / (y.T @ s)
+    
+    while epoch < max_epochs:
+        print(epoch)
+        epoch += 1
+        
+        domain_points, boundary, init = sample_training_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100, val_points)
+
+        # Compute gradient and loss using the flattened parameters
+        loss_val, grad = compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, param_shapes)
+
+        # Check convergence
+        if jnp.linalg.norm(grad) < tol:
+            break
+        
+        # Compute search direction using L-BFGS approximation
+        p = grad
+        if len(s_history) > 0:
+            for i in range(min(len(s_history), m) - 1, -1, -1):
+                s_i = s_history[i]
+                y_i = y_history[i]
+                rho_i = rho_history[i]
+                alpha = rho_i * jnp.dot(s_i, p)
+                p -= alpha * y_i
+            
+            # Approximate Hessian is diagonal initially
+            p *= 1.0  # This is a simple approach for diagonal Hessian approximation
+
+            for i in range(min(len(s_history), m)):
+                s_i = s_history[i]
+                y_i = y_history[i]
+                rho_i = rho_history[i]
+                beta = rho_i * jnp.dot(y_i, p)
+                p += (alpha - beta) * s_i
+
+        # Line search (we use scipy's line search method)
+        line_search = sp.optimize.line_search(lambda params: compute_loss_and_grad(params, domain_points, u_init, boundary, init, param_shapes)[0], 
+                                              lambda params: compute_loss_and_grad(params, domain_points, u_init, boundary, init, param_shapes)[1], 
+                                              flat_params, -p)
+        alpha = line_search[0]  # Step size
+        flat_params_new = flat_params - alpha * p  # Update parameters
+        
+        # Compute s and y
+        s = flat_params_new - flat_params
+        flat_params = flat_params_new
+        loss_val_new, grad_new = compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, param_shapes)
+        grad_new = grad_new.flatten()
+        y = grad_new - grad
+
+        # Update L-BFGS history
+        if len(s_history) == m:
+            s_history.pop(0)
+            y_history.pop(0)
+            rho_history.pop(0)
+        s_history.append(s)
+        y_history.append(y)
+        rho_history.append(1.0 / jnp.dot(y, s))
+
+        # Record the loss for history
+        history.append(loss_val)
+
+    # Unflatten the parameters back to their list form
+    optimized_params = unflatten_params(flat_params, param_shapes)
+
+    return optimized_params, history, epoch
+
 
 #----------------------------------------------------
 # Define Training Step
@@ -225,8 +341,9 @@ def main():
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
             #print("Adam training time: ", adam_time)
-
             
+            params, _, _ = lbfgs_optimizer(params, val_points=[val_domain_points,val_boundary,val_init], max_epochs=1000, tol=1e-8, m=10)
+
             # Evaluation
             real_l2, imag_l2, sq_l2, times_temp, approx, h_approx, true_u, true_v, true_h, domain_pt = CompareGT.get_FEM_comparison(mesh_coord,dt_coord,FEM_real,FEM_imag,FEM_sq,ANN,params) #dt_coord_100,
             times_eval_temp.append(times_temp)
