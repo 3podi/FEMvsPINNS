@@ -143,6 +143,9 @@ def lbfgs_optimizer(ANN_params, domain_points=None, u_init=None, boundary=None, 
         
         domain_points, boundary, init = sample_training_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100, val_points)
 
+        domain_points = jax.device_put(domain_points)
+        boundary = jax.device_put(boundary)
+        init = jax.device_put(init)
         # Compute gradient and loss using the flattened parameters
         loss_val, grad = compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, param_shapes)
 
