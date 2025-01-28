@@ -125,7 +125,7 @@ def compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, pa
     return loss_val, grad_flat
 
 # L-BFGS Optimization Loop
-def lbfgs_optimizer(ANN_params, domain_points=None, boundary=None, init=None, val_points=None, max_epochs=1000, tol=1e-8, m=10):
+def lbfgs_optimizer(ANN_params, max_epochs=1000, tol=1e-8, m=10):
 
     # Initialize parameters
     param_shapes = [param.shape for param in ANN_params]  # Store original shapes for unflattening
@@ -142,7 +142,7 @@ def lbfgs_optimizer(ANN_params, domain_points=None, boundary=None, init=None, va
         print(epoch)
         epoch += 1
         
-        domain_points, boundary, init = sample_training_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100, val_points)
+        domain_points, boundary, init = sample_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100)
 
         domain_points = jax.device_put(domain_points)
         boundary = jax.device_put(boundary)
@@ -346,7 +346,7 @@ def main():
             times_adam_temp.append(adam_time)
             #print("Adam training time: ", adam_time)
             
-            params, _, _ = lbfgs_optimizer(params, val_points=[val_domain_points,val_boundary,val_init], max_epochs=1000, tol=1e-8, m=10)
+            params, _, _ = lbfgs_optimizer(params, max_epochs=1000, tol=1e-8, m=10)
 
             # Evaluation
             real_l2, imag_l2, sq_l2, times_temp, approx, h_approx, true_u, true_v, true_h, domain_pt = CompareGT.get_FEM_comparison(mesh_coord,dt_coord,FEM_real,FEM_imag,FEM_sq,ANN,params) #dt_coord_100,
