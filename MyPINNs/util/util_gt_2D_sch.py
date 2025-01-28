@@ -29,23 +29,25 @@ def get_relative_error(u,v):
 
 class CompareGT:
 
-    def get_FEM_comparison(mesh_coord,dt_coord,FEM_real,FEM_imag,FEM_sq,model,tuned_params): 
+    def get_FEM_comparison(mesh_coord,dt_coord,FEM_real,FEM_imag,FEM_sq,model,tuned_params):
         dom_mesh = jnp.asarray(mesh_coord).squeeze()
-        dom_mesh_ = jnp.tile(dom_mesh,len(dt_coord))#repeating the dom_mesh, len(dt_coord)-times
+        dom_mesh_ = jnp.tile(dom_mesh,(len(dt_coord),1)) #repeating the dom_mesh, dt_coord_100.shape-times
         dom_ts = jnp.repeat(jnp.array(dt_coord),len(mesh_coord))#repeating ts, len(mesh_coord)-times
-        domain_pt = jnp.stack((dom_ts,dom_mesh_),axis=1) #stacking them together, meaning for each mesh coordinate we look at every time instance in ts
+        domain_pt = jnp.stack((dom_ts,dom_mesh_[:,0],dom_mesh_[:,1]),axis=1)  #stacking them together, meaning for each mesh coordinate we look at every time instance in ts
         
         start_time = time.time()
-        approx = jax.block_until_ready(model(tuned_params, domain_pt, dim=3).squeeze()) 
+        approx1 = jax.block_until_ready(model.apply(tuned_params, domain_pt[:int(domain_pt.shape[0]/2),:]).squeeze()) 
+        approx2 = jax.block_until_ready(model.apply(tuned_params, domain_pt[int(domain_pt.shape[0]/2):,:]).squeeze()) 
+        approx = jnp.concatenate((approx1,approx2),axis=0)
         times_eval = time.time()-start_time
         
-        approx = approx.reshape(len(dt_coord),len(mesh_coord),2)
+        approx = approx.reshape(len(dt_coord),len(mesh_coord),2) # going back to ts x mesh x 2 shape to get the 2 components (imaginary and real)
         h_approx = jnp.sqrt(approx[:,:,0]**2+approx[:,:,1]**2) 
         real_l2 = []
         imag_l2 = []
         sq_l2 = []
 
-        for l in range(len(dt_coord)): 
+        for l in range(len(dt_coord)):
             real_l2.append(get_relative_error(FEM_real[int(l)],approx[int(l),:,0]))
             imag_l2.append(get_relative_error(FEM_imag[int(l)],approx[int(l),:,1]))
             sq_l2.append(get_relative_error(FEM_sq[int(l)],h_approx[int(l)]))
