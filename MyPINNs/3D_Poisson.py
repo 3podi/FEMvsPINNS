@@ -126,7 +126,7 @@ def main():
     #----------------------------------------------------
     # Define architectures list
     #----------------------------------------------------
-    architecture_list = [[3,20,20,1],[3,60,60,1],[3,20,20,20,1],[3,60,60,60,1],[3,20,20,20,20,1],[3,60,60,60,60,1],[3,20,20,20,20,20,1],[3,60,60,60,60,60,1]]
+    architecture_list = [[3,20,20,1],[3,60,60,1],[3,20,20,20,1],[3,60,60,60,1],[3,20,20,20,20,1],[3,60,60,60,60,1]]
     #----------------------------------------------------
     # Train PINN
     #----------------------------------------------------
@@ -165,6 +165,7 @@ def main():
             key = jax.random.PRNGKey(0)
             N = 2000 
             domain_points = jax.random.uniform(key, shape=(N, 3), minval=0.0, maxval=1.0)
+            domain_points = jax.device_put(domain_points)
 
             start_time3 = time.time()
             u_approx = ANN(params, domain_points,dim=3).squeeze()

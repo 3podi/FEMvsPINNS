@@ -48,10 +48,22 @@ def pde_residual(params, points):
 def init_residual(u_init, params, xs):
     return jnp.mean((ANN(params, jnp.stack((jnp.zeros_like(xs[:,0]), xs[:,0]), axis=1), dim=2) - u_init(xs[:,0]))**2)
 
+# Helper functions for boundary condition
+@partial(jax.vmap, in_axes=(None, 0, 0), out_axes=0)
+def u_x(u,t,x):
+    u_x = jax.jvp(u, (t,x), (0., 1.))[1]
+    return u_x
+
 @jax.jit
 def boundary_residual(params, ts):
-    return jnp.mean((ANN(params, jnp.stack((ts[:,0], 5 * jnp.ones_like(ts[:,0])), axis=1), dim=2) - 
+    h_ls = u_x(lambda t, x: ANN(params, jnp.stack((t, x)), dim=2), ts[:,0], -5. * jnp.ones(*ts[:,0].shape))
+    h_rs = u_x(lambda t, x: ANN(params, jnp.stack((t, x)), dim=2), ts[:,0], 5. * jnp.ones(*ts[:,0].shape))
+
+    l1 = jnp.mean((h_ls - h_rs)**2)
+    l2 =  jnp.mean((ANN(params, jnp.stack((ts[:,0], 5 * jnp.ones_like(ts[:,0])), axis=1), dim=2) - 
                                   ANN(params, jnp.stack((ts[:,0], -5 * jnp.ones_like(ts[:,0])), axis=1), dim=2))**2)
+    
+    return l1+l2
 
 #----------------------------------------------------
 # Define Training Step
@@ -137,7 +149,7 @@ def main():
     #----------------------------------------------------
     # Define architectures list
     #----------------------------------------------------
-    architecture_list = [[2,20,20,20,2],[2,100,100,100,2],[2,20,20,20,20,2],[2,100,100,100,100,2],[2,20,20,20,20,20,2],[2,100,100,100,100,100,2],[2,20,20,20,20,20,20,2],[2,100,100,100,100,100,100,2]]
+    architecture_list = [[2,20,20,20,2],[2,100,100,100,2],[2,20,20,20,20,2],[2,100,100,100,100,2],[2,20,20,20,20,20,2],[2,100,100,100,100,100,2]]
 
     #----------------------------------------------------
     # Load GT solution

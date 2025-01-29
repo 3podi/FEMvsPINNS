@@ -35,11 +35,15 @@ class CompareGT:
         dom_ts = jnp.repeat(jnp.array(dt_coord),len(mesh_coord))#repeating ts, len(mesh_coord)-times
         domain_pt = jnp.stack((dom_ts,dom_mesh_[:,0],dom_mesh_[:,1]),axis=1)  #stacking them together, meaning for each mesh coordinate we look at every time instance in ts
         
+
+        tuned_params = jax.device_put(tuned_params)
+        domain_pt = jax.device_put(domain_pt)
+
         start_time = time.time()
         approx1 = jax.block_until_ready(model(tuned_params, domain_pt[:int(domain_pt.shape[0]/2),:], dim=3).squeeze()) 
         approx2 = jax.block_until_ready(model(tuned_params, domain_pt[int(domain_pt.shape[0]/2):,:], dim=3).squeeze()) 
-        approx = jnp.concatenate((approx1,approx2),axis=0)
         times_eval = time.time()-start_time
+        approx = jnp.concatenate((approx1,approx2),axis=0)
         
         approx = approx.reshape(len(dt_coord),len(mesh_coord),2) # going back to ts x mesh x 2 shape to get the 2 components (imaginary and real)
         h_approx = jnp.sqrt(approx[:,:,0]**2+approx[:,:,1]**2) 

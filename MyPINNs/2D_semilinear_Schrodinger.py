@@ -126,81 +126,112 @@ def compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, pa
 
 # L-BFGS Optimization Loop
 def lbfgs_optimizer(ANN_params, max_epochs=1000, tol=1e-8, m=10):
+    """
+    Implements L-BFGS optimization for neural network parameters.
+
+    Parameters:
+        ANN_params (list): List of model parameters (tensors).
+        max_epochs (int): Maximum number of optimization epochs.
+        tol (float): Convergence tolerance for the gradient norm.
+        m (int): Number of corrections to approximate the inverse Hessian.
+
+    Returns:
+        optimized_params (list): Optimized model parameters.
+        history (list): Loss history over iterations.
+        epoch (int): Number of epochs performed.
+    """
 
     # Initialize parameters
     param_shapes = [param.shape for param in ANN_params]  # Store original shapes for unflattening
     flat_params = flatten_params(ANN_params)  # Flatten the parameters
-    epoch = 0
-    history = []
+    history = []  # To store loss values
 
     # Initialize L-BFGS variables
-    s_history = []  # History of s = x_new - x
-    y_history = []  # History of y = grad_new - grad
-    rho_history = []  # History of rho = 1 / (y.T @ s)
-    
+    s_history, y_history, rho_history = [], [], []
+    epoch = 0
+
     while epoch < max_epochs:
-        print(epoch)
         epoch += 1
-        
-        domain_points, boundary, init = sample_points([0.,-5.,-5.],[1.,5.,5.],5000,100,100)
 
-        domain_points = jax.device_put(domain_points)
-        boundary = jax.device_put(boundary)
-        init = jax.device_put(init)
-        # Compute gradient and loss using the flattened parameters
+        # Sample domain and boundary points
+        domain_points, boundary, init = sample_points([0.0, -5.0, -5.0], [1.0, 5.0, 5.0], 5000, 100, 100)
+        domain_points, boundary, init = map(jax.device_put, [domain_points, boundary, init])
+
+        # Compute loss and gradient
         loss_val, grad = compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, param_shapes)
+        grad = grad.flatten()  # Ensure gradient is a 1D array
 
-        # Check convergence
-        if jnp.linalg.norm(grad) < tol:
+        # Check for convergence
+        grad_norm = jnp.linalg.norm(grad)
+        if grad_norm < tol:
+            print(f"Converged at epoch {epoch} with gradient norm {grad_norm:.2e}")
             break
-        
-        # Compute search direction using L-BFGS approximation
-        p = grad
+
+        # Compute L-BFGS direction
+        p = -grad
         if len(s_history) > 0:
-            for i in range(min(len(s_history), m) - 1, -1, -1):
-                s_i = s_history[i]
-                y_i = y_history[i]
-                rho_i = rho_history[i]
-                alpha = rho_i * jnp.dot(s_i, p)
-                p -= alpha * y_i
-            
-            # Approximate Hessian is diagonal initially
-            p *= 1.0  # This is a simple approach for diagonal Hessian approximation
+            q = grad
+            alpha_list = []
 
-            for i in range(min(len(s_history), m)):
-                s_i = s_history[i]
-                y_i = y_history[i]
-                rho_i = rho_history[i]
-                beta = rho_i * jnp.dot(y_i, p)
-                p += (alpha - beta) * s_i
+            # First recursion loop (from latest to oldest)
+            for i in range(len(s_history) - 1, -1, -1):
+                s_i, y_i, rho_i = s_history[i], y_history[i], rho_history[i]
+                alpha = rho_i * jnp.dot(s_i, q)
+                alpha_list.append(alpha)
+                q -= alpha * y_i
 
-        # Line search (we use scipy's line search method)
-        line_search = sp.optimize.line_search(lambda params: compute_loss_and_grad(params, domain_points, u_init, boundary, init, param_shapes)[0], 
-                                              lambda params: compute_loss_and_grad(params, domain_points, u_init, boundary, init, param_shapes)[1], 
-                                              flat_params, -p)
-        alpha = line_search[0]  # Step size
-        flat_params_new = flat_params - alpha * p  # Update parameters
-        
-        # Compute s and y
+            # Scale by initial Hessian approximation (diagonal scaling)
+            gamma = jnp.dot(s_history[-1], y_history[-1]) / jnp.dot(y_history[-1], y_history[-1])
+            z = gamma * q
+
+            # Second recursion loop (from oldest to latest)
+            for i in range(len(s_history)):
+                s_i, y_i, rho_i = s_history[i], y_history[i], rho_history[i]
+                beta = rho_i * jnp.dot(y_i, z)
+                z += s_i * (alpha_list.pop() - beta)
+
+            p = -z
+
+        # Line search for step size
+        line_search = sp.optimize.line_search(
+            lambda params: compute_loss_and_grad(params, domain_points, u_init, boundary, init, param_shapes)[0],
+            lambda params: compute_loss_and_grad(params, domain_points, u_init, boundary, init, param_shapes)[1],
+            flat_params,
+            p
+        )
+
+        # Extract step size from line search
+        alpha = line_search[0]
+        if alpha is None or alpha <= 0:
+            print(f"Line search failed at epoch {epoch}.")
+            break
+
+        # Update parameters
+        flat_params_new = flat_params + alpha * p
         s = flat_params_new - flat_params
         flat_params = flat_params_new
+
+        # Compute new gradient and update histories
         loss_val_new, grad_new = compute_loss_and_grad(flat_params, domain_points, u_init, boundary, init, param_shapes)
         grad_new = grad_new.flatten()
         y = grad_new - grad
 
-        # Update L-BFGS history
-        if len(s_history) == m:
-            s_history.pop(0)
-            y_history.pop(0)
-            rho_history.pop(0)
-        s_history.append(s)
-        y_history.append(y)
-        rho_history.append(1.0 / jnp.dot(y, s))
+        # Avoid division by zero in rho calculation
+        ys = jnp.dot(y, s)
+        if ys > 1e-10:
+            if len(s_history) == m:
+                s_history.pop(0)
+                y_history.pop(0)
+                rho_history.pop(0)
 
-        # Record the loss for history
+            s_history.append(s)
+            y_history.append(y)
+            rho_history.append(1.0 / ys)
+
+        # Record the loss
         history.append(loss_val)
 
-    # Unflatten the parameters back to their list form
+    # Unflatten the parameters back to their original shapes
     optimized_params = unflatten_params(flat_params, param_shapes)
 
     return optimized_params, history, epoch
@@ -266,7 +297,7 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
             loss_val = validation_step(params, val_points)  # Compute validation loss
             val_losses.append(loss_val.item())
             print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {train_losses[-1]:.6f}, Val Loss: {val_losses[-1]:.6f}")
-            if best_loss - val_losses[-1] > 0.1:
+            if best_loss - val_losses[-1] > 0.001:
                 best_loss = val_losses[-1]  # Update best loss
                 patience = n_patience  # Reset patience
             else:

@@ -2,7 +2,6 @@ import os
 #import optax
 import jax, time, pickle
 import jax.numpy as jnp
-from jax import debug
 import numpy as onp
 from functools import partial
 import json
@@ -14,8 +13,7 @@ from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Allen_1D import sample_points, sample_training_points
 
-from util_gt import ImportData, CompareGT
-#from Allen_Cahn_1D.util import sample_points
+from util.util_gt import ImportData, CompareGT
 
 
 #----------------------------------------------------
@@ -133,7 +131,7 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, n_p
             loss_val = validation_step(params, val_points)  # Compute validation loss
             val_losses.append(loss_val.item())
             print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {train_losses[-1]:.6f}, Val Loss: {val_losses[-1]:.6f}")
-            if best_loss - val_losses[-1] > 0.1:
+            if best_loss - val_losses[-1] > 0.01:
                 best_loss = val_losses[-1]  # Update best loss
                 patience = n_patience  # Reset patience
             else:
@@ -143,25 +141,8 @@ def train_loop(params, adam, opt_state, init_epochs, num_epochs, val_points, n_p
                 print('Early stopping the training, best val_loss: ', best_loss)
                 break
             
-            #plot_losses(train_losses_dict, val_losses_dict)
-        #else:
-        #    print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}")
     
     return train_losses, val_losses, params, opt_state
-
-
-#----------------------------------------------------
-# Define Helper Functions for L-BFGS wrapper
-#----------------------------------------------------
-#def concat_params(params):
-#    params, tree = jax.tree_util.tree_flatten(params)
-#    shapes = [param.shape for param in params]
-#    return jnp.concatenate([param.reshape(-1) for param in params]), tree, shapes
-
-#def unconcat_params(params, tree, shapes):
-#    split_vec = jnp.split(params, onp.cumsum([onp.prod(shape) for shape in shapes]))
-#    split_vec = [vec.reshape(*shape) for vec, shape in zip(split_vec, shapes)]
-#    return jax.tree_util.tree_unflatten(tree, split_vec)
 
 
 def main():
@@ -181,8 +162,7 @@ def main():
     #----------------------------------------------------
     # Define architectures list
     #----------------------------------------------------
-    #architecture_list = [[2,20,20,20,1],[2,100,100,100,1],[2,500,500,500,1],[2,20,20,20,20,1],[2,100,100,100,100,1],[2,500,500,500,500,1],[2,20,20,20,20,20,1],[2,100,100,100,100,100,1],[2,500,500,500,500,500,1],[2,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,1],[2,500,500,500,500,500,500,1],[2,20,20,20,20,20,20,20,1],[2,100,100,100,100,100,100,100,1]]
-    architecture_list = [[2,100,100,100,100,1],[2,100,100,100,1],[2,20,20,20,1],[2,20,20,20,20,1],[2,20,20,20,20,20,1]]
+    architecture_list = [[2,100,100,100,100,1],[2,100,100,100,1],[2,20,20,20,1],[2,20,20,20,20,1],[2,20,20,1],[2,100,100,1]]
     
     #----------------------------------------------------
     # Load GT solution
@@ -225,29 +205,6 @@ def main():
             adam_time = time.time()-start_time
             times_adam_temp.append(adam_time)
             #print("Adam training time: ", adam_time)
-
-            #----------------------------------------------------
-            # Start Training with L-BFGS optimiser
-            #----------------------------------------------------
-            #init_point, tree, shapes = concat_params(params)
-            #domain_points, boundary, init = sample_points([0.,0.],[0.05,1.],20000,250,500)
-
-            #print('Starting L-BFGS Optimisation')
-            #start_time2 = time.time()
-            #results = tfp.optimizer.lbfgs_minimize(jax.value_and_grad(lambda params: pde_residual(unconcat_params(params, tree, shapes), domain_points) + 
-            #                                                    1000*init_residual(u_init,unconcat_params(params, tree, shapes), init) +
-            #                                                    boundary_residual(unconcat_params(params, tree, shapes), boundary)),
-            #                            init_point,
-            #                            max_iterations=50000,
-            #                            num_correction_pairs=50,
-            #                            f_relative_tolerance=1.0 * jnp.finfo(float).eps)
-        
-            #lbfgs_time = time.time()-start_time2
-            #times_total_temp.append(time.time()-start_time)
-            #times_lbfgs_temp.append(lbfgs_time)
-
-            # Evaluation
-            #tuned_params = unconcat_params(results.position, tree, shapes)
             
             l2, times_temp, approx, gt_fem, domain_pt = CompareGT.get_FEM_comparison(mesh_coord,dt_coord,FEM,ANN,params)
             times_eval_temp.append(times_temp)

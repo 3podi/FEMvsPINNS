@@ -36,6 +36,9 @@ class CompareGT:
         dom_ts = jnp.repeat(jnp.array(dt_coord),len(mesh_coord)) #repeating ts, len(mesh_coord)-times
         domain_pt = jnp.stack((dom_ts,dom_mesh_),axis=1) #stacking them together, meaning for each mesh coordinate we look at every time instance in ts
         
+        tuned_params = jax.device_put(tuned_params)
+        domain_pt = jax.device_put(domain_pt)
+        
         start_time = time.time()
         approx = jax.block_until_ready(model(tuned_params, domain_pt).squeeze())
         times_eval = time.time()-start_time

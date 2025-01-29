@@ -13,9 +13,6 @@ from optimizers import Adam2 as Adam
 from lr_schedulers import LinearWarmupCosineDecay
 from dataset.util_Poisson_1D import sample_points, sample_training_points
 
-from util_gt import ImportData, CompareGT
-#from Allen_Cahn_1D.util import sample_points
-
 
 #----------------------------------------------------
 # Define Loss Function
@@ -106,9 +103,6 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
                 print('Early stopping the training, best val_loss: ', best_loss)
                 break
             
-            #plot_losses(train_losses_dict, val_losses_dict)
-        #else:
-        #    print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {loss_train.item():.6f}")
     
     return train_losses, val_losses, params, opt_state
 
@@ -168,6 +162,7 @@ def main():
             with open("./Eval_Points/1D_Poisson_eval-points.json", 'r') as f:
                 domain_points = json.load(f)
                 domain_points = jnp.array(domain_points)
+                domain_points = jax.device_put(domain_points)
 
             start_time3 = time.time()
             u_approx = ANN(params, domain_points).squeeze()

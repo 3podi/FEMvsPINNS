@@ -187,6 +187,7 @@ def main():
             with open("./Eval_Points/2D_Poisson_eval-points.json", 'r') as f:
                 domain_points = json.load(f)
                 domain_points = jnp.array(domain_points)
+                domain_points = jax.device_put(domain_points)
 
             start_time3 = time.time()
             u_approx = ANN(params, jnp.stack((domain_points[:,0], domain_points[:,1]),axis=1),dim=2).squeeze()
