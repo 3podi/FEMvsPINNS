@@ -107,8 +107,8 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
         
     for epoch in range(num_epochs):
         # Lr scheduler step
-        #lr = lr_scheduler.get_lr()
-        #adam.learning_rate = lr
+        lr = lr_scheduler.get_lr()
+        adam.learning_rate = lr
 
         # Perform a training step
         params, opt_state, loss_train = training_step(params, adam, opt_state, val_points, neumann_derivatives)
@@ -119,15 +119,15 @@ def train_loop(params, adam, opt_state, num_epochs, val_points, n_patience, vali
             loss_val = validation_step(params, val_points)  # Compute validation loss
             val_losses.append(loss_val.item())
             print(f"Epoch {epoch + 1}/{num_epochs} - Train Loss: {train_losses[-1]:.6f}, Val Loss: {val_losses[-1]:.6f}")
-            if best_loss - val_losses[-1] > 0.1:
+            if best_loss - val_losses[-1] > 0.00001:
                 best_loss = val_losses[-1]  # Update best loss
                 patience = n_patience  # Reset patience
             else:
                 patience -= 1
             
-            #if patience == 0:
-            #    print('Early stopping the training, best val_loss: ', best_loss)
-            #    break
+            if patience == 0:
+                print('Early stopping the training, best val_loss: ', best_loss)
+                break
             
     
     return train_losses, val_losses, params, opt_state
