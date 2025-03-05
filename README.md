@@ -34,3 +34,10 @@ The code was written in Pytorch using the jax library for deep learning. Followi
 
 Due to file size, we can only upload the evalutation points and solution matrices for Poisson 1D, 2D, Allen-Cahn 1D and Schrödinger 1D. However, the evalutation points and solution matrices for the remaining PDEs can be easily created using FEniCS, as they are based on the meshes generated through the code. Details of mesh size and temporal resolution can be found in the paper. 
 
+## Repository Structure
+
+- `Eval_Points/` - Contains the evaluation points used for assessing both the FEM and neural network models on a fine mesh.
+- `FEM_codes/` - Includes the code required to run Finite Element Method (FEM) experiments.
+- `FEM_results/` - Stores the results generated from FEM experiments.
+- `MyPINNs/` - Contains the implementation of Physics-Informed Neural Networks (PINNs) for running neural network-based experiments.
+
